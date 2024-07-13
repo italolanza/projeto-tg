@@ -1,8 +1,6 @@
-# Created by https://www.toptal.com/developers/gitignore/api/eclipse
-# Edit at https://www.toptal.com/developers/gitignore?templates=eclipse
-
 ### Eclipse ###
 .metadata
+.metadata/
 bin/
 tmp/
 *.tmp
@@ -13,7 +11,14 @@ local.properties
 .settings/
 .loadpath
 .recommenders
+Debug/
+Release/
+build/
+RemoteSystemsTempFiles/
 
+# STM32 git ignore
+.ai/
+Test_Nucleo_F446RE/
 
 # External tool builders
 .externalToolBuilders/
@@ -21,11 +26,8 @@ local.properties
 # Locally stored "Eclipse launch configurations"
 *.launch
 
-# PyDev specific (Python IDE for Eclipse)
-*.pydevproject
-
 # CDT-specific (C/C++ Development Tooling)
-.cproject
+#.cproject
 
 # CDT- autotools
 .autotools
@@ -41,12 +43,6 @@ local.properties
 
 # Tern plugin
 .tern-project
-
-# TeXlipse plugin
-.texlipse
-
-# STS (Spring Tool Suite)
-.springBeans
 
 # Code Recommenders
 .recommenders/
@@ -68,5 +64,26 @@ local.properties
 # Spring Boot Tooling
 .sts4-cache/
 
-# End of https://www.toptal.com/developers/gitignore/api/eclipse
-/proj_tg/
+# Arquivos de projeto temporários
+*.swp
+*.swo
+*~
+*.bak
+
+# Objetos compilados e bibliotecas
+*.o
+*.obj
+*.a
+*.so
+*.exe
+*.out
+*.dylib
+*.dll
+
+# Arquivos temporários de log e bancos de dados
+*.log
+*.sql
+*.sqlite
+
+# Configurações do IDE
+.vscode/
