@@ -68,17 +68,31 @@ typedef struct {
 #define AUDIO_FILE_NAME "audio.wav"
 #define INPUT_BUFFER_SIZE 4096
 #define HALF_INPUT_BUFFER_SIZE (INPUT_BUFFER_SIZE / 2)
-#define FFT_BUFFER_SIZE (INPUT_BUFFER_SIZE / 2)
+#define INPUT_SIGNAL_SIZE (INPUT_BUFFER_SIZE * 2)
+#define OUTPUT_SIGNAL_SIZE (INPUT_SIGNAL_SIZE / 2)
 #define SAMPLE_RATE_HZ 44800 //TODO: MUDAR DE ACORDO COM O VALOR REAL MOSTRADO PELO PROJETO
+#define OVERLAP_FACTOR 0.75  // Overlapping de 75%
+#define ADVANCE_SIZE (int)(INPUT_BUFFER_SIZE * (1.0f - OVERLAP_FACTOR)) // 25% de avanco
+
 //#define INT16_TO_FLOAT (1.0 / (32768.0f))
 //#define FLOAT_TO_INT16 32768.0f
 #define INT_TO_FLOAT (1.0 / (4096.0f))
 #define FLOAT_TO_INT 4096.0f
+
+
+// Definir apenas uma dessas opcoes:
+#define USE_SD_AUDIO           		// Usar audio do cartao SD
+//#define USE_MIC_AUDIO             // Usar microfone (ADC + DMA)
+
+// Verificação para garantir que apenas uma opcao esta ativa
+#if defined(USE_SD_AUDIO) && defined(USE_MIC_AUDIO)
+	#error "Vocc deve definir apenas uma das opcoes: USE_SD_AUDIO ou USE_MIC_AUDIO"
+#endif
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -87,41 +101,37 @@ SPI_HandleTypeDef hspi2;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-//Input Audio Stuff - Variaveis usadas na aquisicao do audio utilizando o microfone
-int16_t adcBuffer[INPUT_BUFFER_SIZE];
-static volatile float32_t inputBuffer[INPUT_BUFFER_SIZE];
-static volatile uint8_t bufferReadyFlag;
+// Variaveis comuns
+static volatile int16_t inputBuffer[INPUT_BUFFER_SIZE];	// Buffer para armazenar os dados de entrada (ADC ou arquivo .wav)
+static float32_t inputSignal[INPUT_SIGNAL_SIZE]; // Buffer de entrada da FFT
+float32_t outputSignal[OUTPUT_SIGNAL_SIZE];   				// Buffer de saída para os resultados
+float32_t hanningWindow[OUTPUT_SIGNAL_SIZE]; 				// Buffer para a janela de hanning
+//static volatile uint8_t fftBufferReadyFlag; 			// Variavel que informa se o buffer entrada da FFT esta pronto para processamento
+arm_rfft_fast_instance_f32 fftHandler;					// Esturura para FFT real
 
-// FFT related stuff
-arm_rfft_fast_instance_f32 fftHandler;
-float32_t hanningWindow[FFT_BUFFER_SIZE]; // Buffer para a janela
-float32_t fftBufferInput[FFT_BUFFER_SIZE];
-float32_t fftBufferOutput[FFT_BUFFER_SIZE];
-static volatile uint8_t fftBufferReadyFlag; //let it know when the FFT buffer is full/is ready to be computed
-//static float peakVal = 0.0f;
-//static uint32_t peakHz = 0;
+#ifdef USE_SD_AUDIO
+int16_t audioBuffer[INPUT_BUFFER_SIZE]; // Buffer para armazenar amostras de áudio lidas do arquivo WAV
+FATFS FatFs; 											// Estrutura do FatFs
+FIL fil;           // Estrtura de um arquivo do FatFs (Arquivo WAV no cartão SD)
+FRESULT fres; 				// Estutura de resultado de uma operacao do FatFs
+UINT bytesRead;                     		// Numero de bytes lidos do arquivo
+WAVHeader wavHeader;				// Estura de um cabecalho de um arquivo .wav
+uint32_t dataSize;	// Variavel para armazenar a quantidade de dados lida do sd card
+#endif
 
-//Time Domain Features
-static TDFeatures tdFeatures = { 0 }; // time domain features
-//static float32_t RMS;
-//static float32_t MeanVal; 	/* Removed in the article */
-//static float32_t MedianVal; 	/* Removed in the article */
-//static float32_t VarianceVal;
-//static float32_t SigShapeFactor;
-//static float32_t SigKurtosisVal;
-//static float32_t SigSkewnessVal;
-//static float32_t SigImpulseFactor;
-//static float32_t SigCrestFactor;
-//static float32_t SigMarginFactor;
+#ifdef USE_MIC_AUDIO
+	int16_t adcBuffer[INPUT_BUFFER_SIZE];					// Buffer de dados do ADC para capturar audio do microfone
+	static volatile uint8_t bufferReadyFlag;				// Variavel que informa se o inputBuffer esta pronto para leitura
+	ADC_HandleTypeDef hadc1;								// Estrutura do ADC
+	TIM_HandleTypeDef htim2;								// Estrutura do Timer 2 para o DMA
+#endif
 
-//Frequency Domain Features
-static FDFeatures fdFeatures = { 0 }; // frequency domain features
-//static int32_t PeakAmp1; // largest amplitude of the extracted frequencies in the signal
-//static int32_t PeakAmp2; // second largest amplitude of the extracted frequencies in the signal
-//static int32_t PeakAmp3; // third largest amplitude of the extracted frequencies in the signal
-//static int32_t PeakLocs1; 	// frequency value of the largest amplitude
-//static int32_t PeakLocs2; 	// frequency value of the second largest amplitude
-//static int32_t PeakLocs3; 	// frequency value of the third largest amplitude
+// Time Domain Features
+static TDFeatures tdFeatures = { 0 }; // Estrutura das features relacionadas ao dominio do Tempo
+
+// Frequency Domain Features
+static FDFeatures fdFeatures = { 0 }; // Estrutura das features relacionadas ao dominio da Frequencia
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -131,29 +141,35 @@ static void MX_USART2_UART_Init(void);
 static void MX_SPI2_Init(void);
 /* USER CODE BEGIN PFP */
 
-//File System
-void myprintf(const char *fmt, ...);
+// Prototipos relacionados a leitura de arquivos de audio no SDCard
+#ifdef USE_SD_AUDIO
 FRESULT readWAVHeader(FIL *file, WAVHeader *header);
 FRESULT readWAVData(FIL *file, void *buffer, UINT numBytesToRead,
 		UINT *numBytesRead);
 void printWAVHeader(const WAVHeader *header);
 FRESULT readAllWavFile(FIL *file, WAVHeader *header);
+#endif
 
-//Audio Processing
+// Pre-processamento
 void createHanningWindow(float32_t *window, int size);
-float32_t calculateKurtosis(float32_t *signal, uint32_t length, float32_t mean,
-		float32_t stdDev);
-float32_t calculateSkewness(float32_t *signal, uint32_t length, float32_t mean,
-		float32_t stdDev);
-//void extractTimeDomainFeatures(void);
-//void extractFrequencyDomainFeatures(void);
-//void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc);
-//void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc);
+
+// Funcoes de suporte
+void myprintf(const char *fmt, ...);
+
+// Funcoes relacionado a inferencia
 int32_t decision_tree_test(void);
 int32_t extra_trees_test(void);
 int32_t gaussian_naive_bayes_test(void);
 int32_t random_forest_test(void);
 int32_t run_inference(int32_t (*func)(void));
+
+#ifdef USE_MIC_AUDIO
+	void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc);
+	void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc);
+	static void ADC_Init(void);
+	//static void MX_ADC1_Init(void);
+	//static void MX_TIM2_Init(void);
+#endif
 
 /* USER CODE END PFP */
 
@@ -202,7 +218,7 @@ FRESULT readWAVData(FIL *file, void *buffer, UINT numBytesToRead,
 }
 
 FRESULT readAllWavFile(FIL *file, WAVHeader *header) {
-	int buffer[1024];
+//	int buffer[1024];
 //	for (int i = 0, i<= header.)
 	return 0;
 }
@@ -241,163 +257,206 @@ int main(void) {
 
 	/* USER CODE BEGIN Init */
 
+	arm_rfft_fast_init_f32(&fftHandler, OUTPUT_SIGNAL_SIZE); // Inicializa Estrutura Handler da FFT
+
 	/* USER CODE END Init */
 
 	/* Configure the system clock */
 	SystemClock_Config();
 
 	/* USER CODE BEGIN SysInit */
-
 	/* USER CODE END SysInit */
 
 	/* Initialize all configured peripherals */
 	MX_GPIO_Init();
 	MX_USART2_UART_Init();
-	MX_FATFS_Init();
 	MX_SPI2_Init();
 	/* USER CODE BEGIN 2 */
-	myprintf("\r\n~ Projeto TG by Italo ~\r\n\r\n");
-	HAL_Delay(3000); //a short delay is important to let the SD card settle
-	arm_rfft_fast_init_f32(&fftHandler, FFT_BUFFER_SIZE); //init FFT Handler
-	// Criar o vetor da janela Hanning
-	arm_fill_f32(1.0f, hanningWindow, FFT_BUFFER_SIZE); // Preenche o buffer com 1.0 inicialmente
-	createHanningWindow(hanningWindow, FFT_BUFFER_SIZE); // Aplica o janelamento Hanning no vetor
 
-	//some variables for FatFs
-	FATFS FatFs; 	//Fatfs handle
-	FIL fil; 		//File handle
-	FRESULT fres; //Result after operations
-	WAVHeader wavHeader;
-	UINT bytesRead;
+	uint32_t sampleRate;
+//	uint16_t numChannels;
+//	uint16_t bitsPerSample;
 
-	bufferReadyFlag = 0;
-	fftBufferReadyFlag = 0;
+#ifdef USE_SD_AUDIO
+	MX_FATFS_Init();
+	HAL_Delay(3000); 		// Um delay para o cartao SD estabilizar
+	SDCard_Init(&FatFs);
 
-	//Open the file system
-	fres = f_mount(&FatFs, "", 1); //1=mount now
+	// Montagem do file system
+	fres = SDCard_Mount();
 	if (fres != FR_OK) {
-		myprintf("f_mount error (%i)\r\n", fres);
-		while (1)
-			;
+		myprintf("[ERRO] Erro no SDCard_Mount. Codigo do erro: (%i)\r\n", fres);
+		while (1) {
+		} // loop infinito para travar a execucao do programa
 	}
-	//Now let's try to open file "audio.wav"
-	fres = f_open(&fil, "audio.wav", FA_READ);
+
+	// Tenta abrir o arquivo com o nome defino pela flag AUDIO_FILE_NAME
+	fres = SDCard_OpenFile(&fil, AUDIO_FILE_NAME, FA_READ);
 	if (fres != FR_OK) {
-		myprintf("f_open error (%i)\r\n", fres);
-		// Desmontar o sistema de arquivos
-		f_mount(NULL, "", 0);
-		while (1)
-			;
+		myprintf("[ERRO] Erro ao abrir arquivo '%s'. Codigo do erro: (%i)\r\n",
+				AUDIO_FILE_NAME, fres);
+
+		SDCard_Unmount();
+
+		while (1) {
+		} // loop infinito para travar a execucao do programa
 	}
 
 	// Ler o cabeçalho do arquivo WAV
 	fres = readWAVHeader(&fil, &wavHeader);
 	if (fres != FR_OK) {
 		// Lidar com erros na leitura do cabeçalho
-		myprintf("Error opening wav header(%i)\r\n", fres);
-		f_close(&fil);
-		// Desmontar o sistema de arquivos
-		f_mount(NULL, "", 0);
-		while (1)
-			;
+		myprintf(
+				"[ERRO] Erro ao abrir arquivo '.wav'. Codigo do erro: (%i)\r\n",
+				fres);
+
+		SDCard_CloseFile(&fil);
+		SDCard_Unmount();
+
+		while (1) {
+		} // loop infinito para travar a execucao do programa
 	}
 
 	printWAVHeader(&wavHeader);
 
-	// Buffer para leitura de dados
 	// Verificar se é um arquivo WAV válido
 	if (strncmp(wavHeader.chunkID, "RIFF", 4) == 0
 			&& strncmp(wavHeader.format, "WAVE", 4) == 0) {
-		// Agora você pode acessar os campos do cabeçalho WAV
-		uint32_t sampleRate = wavHeader.sampleRate;
-		uint16_t numChannels = wavHeader.numChannels;
-		uint16_t bitsPerSample = wavHeader.bitsPerSample;
 
-		// Resto do código para processar os dados de áudio...
+		// Acessando os campos do cabeçalho WAV
+		sampleRate = wavHeader.sampleRate;
+//		numChannels = wavHeader.numChannels;
+//		bitsPerSample = wavHeader.bitsPerSample;
 
 		// Agora, leia os dados do arquivo com base nas informações do cabeçalho
-		uint32_t dataSize = wavHeader.subchunk2Size;
-		uint32_t j = 0;
+		dataSize = wavHeader.subchunk2Size;
 
-		while (dataSize > 0) {
-			UINT bytesToRead =
-					(dataSize > INPUT_BUFFER_SIZE) ?
-							INPUT_BUFFER_SIZE : dataSize;
-			f_read(&fil, adcBuffer, bytesToRead, &bytesRead);
-
-			// Converte os arquivos de entrada de int16_t para float32_t
-			for (int i = 0; i < INPUT_BUFFER_SIZE; i++) {
-
-				inputBuffer[i] = (float32_t) adcBuffer[i];
-				//	inputBuffer[HALF_INPUT_BUFFER_SIZE+i] = (float32_t) adcBuffer[i];
-				//		inputBuffer[HALF_INPUT_BUFFER_SIZE+i] = adcBuffer[i] * INT16_TO_FLOAT;
-				//		inputBuffer[HALF_INPUT_BUFFER_SIZE+i] = (float32_t) adcBuffer[i] * INT_TO_FLOAT;
-
-			}
-
-			// Aqui você pode processar os dados do buffer conforme necessário
-			for (int n = (FFT_BUFFER_SIZE / 4); n <= FFT_BUFFER_SIZE;
-					n = n + (FFT_BUFFER_SIZE / 4)) {
-
-				/*
-				 * Pre-processing
-				 */
-				//TODO: Testar possivel otimizacao removendo essa copia inicial e fazendo a multiplicacao direta
-				// 	  direta da janela com o input buffer
-				//75% overlapping of the data before windowing
-				arm_copy_f32(&inputBuffer[n], fftBufferInput, FFT_BUFFER_SIZE);
-
-				//Apply hanning window to fft input buffer
-				arm_mult_f32(fftBufferInput, hanningWindow, fftBufferInput,
-				FFT_BUFFER_SIZE);
-
-				/*
-				 * Extract Time Domain Features
-				 */
-				//			  uint32_t startTick = SysTick->VAL;
-//				extractTimeDomainFeatures();
-				//			  uint32_t endTick = SysTick->VAL;
-				/*
-				 * Extract Frequency Domain Features
-				 */
-//				extractFrequencyDomainFeatures();
-				/*
-				 * Run Inference
-				 */
-//				int32_t result = run_inference(decision_tree_test);
-				//myprintf("%d %d %d %d %d %d \r\n", PeakAmp1, PeakAmp2, PeakAmp3, PeakLocs1, PeakLocs2, PeakLocs3);
-//				myprintf("Inference result: %d\r\n", result);
-
-			}
-
-			//updates inputBuffer with previous data for overlapping
-			arm_copy_f32(&inputBuffer[HALF_INPUT_BUFFER_SIZE], &inputBuffer[0],
-			FFT_BUFFER_SIZE);
-			bufferReadyFlag = 0;
-
-		}
-		dataSize -= bytesRead;
-	}
-
-	else {
+		HAL_Delay(1000); 		// Um delay para o cartao SD estabilizar
+	} else {
 		// Não é um arquivo WAV válido
-		// Adote a lógica de tratamento de erro apropriada
+		// TODO: Adotar lógica de tratamento de erro apropriada
+		myprintf("[ERRO] Arquivo de audio '.wav' nao e valido!");
+		while (1) {
+		} // loop infinito para travar a execucao do programa
 	}
+
+#endif
+
+#ifdef USE_MIC_AUDIO
+	bufferReadyFlag = 0;
+
+	void ADC_Init(void);
+
+	// Habilida o timer 2
+	if(HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1) != HAL_OK) {
+		Error_Handler();
+	}
+#endif
 
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 
-	f_close(&fil);
-// Desmontar o sistema de arquivos
-	f_mount(NULL, "", 0);
+	myprintf("\r\n~ Projeto TG by Italo ~\r\n\r\n");
+
+	// Criar o vetor da janela Hanning
+	arm_fill_f32(0.0f, inputSignal, OUTPUT_SIGNAL_SIZE); 		// Preenche o inputSignal com 0.0 inicialmente
+	arm_fill_f32(1.0f, hanningWindow, OUTPUT_SIGNAL_SIZE); 		// Preenche o hanningWindow com 1.0 inicialmente
+	createHanningWindow(hanningWindow, OUTPUT_SIGNAL_SIZE); 	// Aplica o janelamento Hanning no vetor
+
 	while (1) {
-		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-		HAL_Delay(1000);
+#ifdef USE_SD_AUDIO
+
+		size_t bytesToRead = (dataSize > INPUT_BUFFER_SIZE) ? INPUT_BUFFER_SIZE : dataSize;
+
+		// Ler amostras de audio do arquivo .wav no cartão SD
+		if (SDCard_Read(&fil, inputBuffer, bytesToRead, &bytesRead)
+				== FR_OK && bytesRead > 0) {
+			// Converter as amostras de 16 bits para float32_t e normalizar
+			for (int i = 0; i < INPUT_BUFFER_SIZE; i++) {
+				// Copia os dados para segunda metade do inputSignal
+				inputSignal[INPUT_BUFFER_SIZE + i] = (float32_t) inputBuffer[i];
+//				inputSignal[INPUT_BUFFER_SIZE + i] = (float32_t) inputBuffer[i] / 32768.0f; // Normalizacao de 16 bits para float
+			}
+		} else {
+			// Erro de leitura ou fim de arquivo
+			//f_lseek(&fil, 44); 	// Reinicia o arquivo (ciclo)
+
+			// Fecha o arquivo WAV e desmontar o sistema de arquivos
+			SDCard_CloseFile(&fil);
+			SDCard_Unmount();
+
+			break;
+		}
+#endif
+
+#ifdef USE_MIC_AUDIO
+		// Capturar dados do microfone via ADC
+		sampleRate = SAMPLE_RATE_HZ;
+
+		// Copia os dados para segunda metade do inputSignal
+		for (int i = 0; i < INPUT_BUFFER_SIZE; i++) {
+			inputSignal[INPUT_BUFFER_SIZE + i] = (float32_t) inputBuffer[i];
+//			inputSignal[INPUT_BUFFER_SIZE + i] = (float32_t) adcBuffer[i] / 4096.0f; // Normalizaçcao de 12 bits (4096) para float
+		}
+#endif
+
+		// Processamento dos dados lidos (no buffer) necessário
+		//  Overlapping de 75% antes do janelamento
+		for (int n = (int)(INPUT_BUFFER_SIZE * (1.0f - OVERLAP_FACTOR)); n <= INPUT_BUFFER_SIZE; n = n + (INPUT_BUFFER_SIZE * ADVANCE_SIZE)) {
+
+			/* Pre-processamento --------------------------------------------------------*/
+
+			// TODO: Testar possivel otimizacao removendo essa copia inicial e
+			//       fazendo a multiplicacao direta da janela com o input buffer
+
+			//  Overlapping de 75% antes do janelamento
+//			arm_copy_f32(&inputBuffer[n], inputSignal, OUTPUT_SIGNAL_SIZE);
+
+			// Aplica a janela de hanning no buffer de entrada da fft
+			arm_mult_f32(inputSignal, hanningWindow, inputSignal, OUTPUT_SIGNAL_SIZE);
+
+			// Calcula fft usando a biblioteca da ARM
+			arm_rfft_fast_f32(&fftHandler, inputSignal, outputSignal, 0); // o ultimo argumento significa que nao queremos calcular a fft inversa
+
+
+			/* Extracao das Features no Dominio do Tempo --------------------------------*/
+
+//			uint32_t startTick = SysTick->VAL;
+			extractTimeDomainFeatures(&tdFeatures, inputSignal,	OUTPUT_SIGNAL_SIZE);
+//			uint32_t endTick = SysTick->VAL;
+
+
+			/* Extracao das Features no Dominio da Frequencia ---------------------------*/
+
+//			uint32_t startTick = SysTick->VAL;
+			extractFrequencyDomainFeatures(&fdFeatures, outputSignal, INPUT_BUFFER_SIZE, sampleRate);
+//			uint32_t endTick = SysTick->VAL;
+
+
+			/* Faz Inferencia -----------------------------------------------------------*/
+			int32_t result = run_inference(decision_tree_test);
+			// TODO: Imprimir no console as features
+//			myprintf("%d %d %d %d %d %d \r\n", PeakAmp1, PeakAmp2, PeakAmp3, PeakLocs1, PeakLocs2, PeakLocs3);
+			myprintf("Inference result: %d\r\n", result);
+
+		}
+
+		// Atualiza a primeira metade do inputSignal para proxima janela de dados
+		arm_copy_f32(&inputSignal[INPUT_BUFFER_SIZE], &inputSignal[0], OUTPUT_SIGNAL_SIZE);
+
+#ifdef USE_MIC_AUDIO
+		bufferReadyFlag = 0;
+#endif
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
+	}
+
+	while (1) {
+		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+		HAL_Delay(1000);
 	}
 	/* USER CODE END 3 */
 }
@@ -566,139 +625,10 @@ void createHanningWindow(float32_t *window, int size) {
 	}
 }
 
-//float32_t calculateKurtosis(float32_t *signal, uint32_t length, float32_t mean,
-//		float32_t stdDev) {
-//
-//// Inicializa a kurtosis
-//	float32_t kurtosis = 0.0f;
-//
-//// Calcula a kurtosis usando a fórmula
-//	for (uint32_t i = 0; i < length; i++) {
-//		float32_t diff = signal[i] - mean;
-//		kurtosis += (diff * diff * diff * diff)
-//				/ (length * stdDev * stdDev * stdDev * stdDev);
-//	}
-//
-//	return kurtosis;
-//}
-
-//float32_t calculateSkewness(float32_t *signal, uint32_t length, float32_t mean,
-//		float32_t stdDev) {
-//
-//// Inicializa o skewness
-//	float32_t skewness = 0.0f;
-//
-//// Calcula o skewness usando a fórmula
-//	for (uint32_t i = 0; i < length; i++) {
-//		float32_t diff = signal[i] - mean;
-//		skewness += (diff * diff * diff) / (length * stdDev * stdDev * stdDev);
-//	}
-//
-//	return skewness;
-//}
-
-//void extractTimeDomainFeatures(void) {
-//
-//	float32_t AbsSig[FFT_BUFFER_SIZE];
-//	float32_t MaxValue, MinValue, MeanVal, MeanAbs, StdDevValue;
-//	uint32_t MaxValueIndex, MinValueIndex;
-//
-//	/* Calculate Max Value*/
-//	arm_max_f32(fftBufferInput, FFT_BUFFER_SIZE, &MaxValue, &MaxValueIndex);
-//
-//	/* Calculate Min Value*/
-//	arm_min_f32(fftBufferInput, FFT_BUFFER_SIZE, &MinValue, &MinValueIndex);
-//
-//	/* Calculate Absolute Value*/
-//	arm_abs_f32(fftBufferInput, AbsSig, FFT_BUFFER_SIZE);
-//
-//	/* Calculate Mean of the Absolute Signal */
-//	arm_mean_f32(AbsSig, FFT_BUFFER_SIZE, &MeanAbs);
-//
-//	/* Calculate Mean Value */
-//	arm_mean_f32(fftBufferInput, FFT_BUFFER_SIZE, &MeanVal);
-//
-//	/* Calculate RMS */
-//	arm_rms_f32(fftBufferInput, FFT_BUFFER_SIZE, &RMS);
-//
-//	/* Calculate Variance */
-//	arm_var_f32(fftBufferInput, FFT_BUFFER_SIZE, &VarianceVal);
-//
-//	/* Calculate Standart Deviation Value */
-//	arm_std_f32(fftBufferInput, FFT_BUFFER_SIZE, &StdDevValue);
-//
-//	/* Calculate SigShape Value */
-//	SigShapeFactor = RMS / MeanAbs;
-//
-//	/* Calculate Kurtosis */
-//	SigKurtosisVal = calculateKurtosis(fftBufferInput, FFT_BUFFER_SIZE, MeanVal,
-//			StdDevValue);
-//
-//	/* Calculate Skewness */
-//	SigSkewnessVal = calculateSkewness(fftBufferInput, FFT_BUFFER_SIZE, MeanVal,
-//			StdDevValue);
-//
-//	/* Calculate Impulse Factor */
-//	SigImpulseFactor = MaxValue / MeanAbs;
-//
-//	/* Calculate Crest Factor */
-//	SigCrestFactor = MaxValue / RMS;
-//
-//	/* Calculate Margin Factor */
-//	SigMarginFactor = (MaxValue - MinValue) / (MeanVal);
-//}
-
-//void extractFrequencyDomainFeatures(void) {
-//
-//	PeakAmp1 = 0;
-//	PeakAmp2 = 0;
-//	PeakAmp3 = 0;
-//	PeakLocs1 = 0;
-//	PeakLocs2 = 0;
-//	PeakLocs3 = 0;
-//
-//	arm_rfft_fast_f32(&fftHandler, fftBufferInput, fftBufferOutput, 0); //the last arg means that we dont want to calc the invert fft
-//
-////Compute absolute value of complex FFT results per frequency bin, get peak
-//	int32_t freqIndex = 4;
-////TODO: Verificar novamente se amplitude da posicao 2 continua alta
-//	for (int index = 4; index < FFT_BUFFER_SIZE; index += 2) {
-//		float curVal = sqrtf(
-//				(fftBufferOutput[index] * fftBufferOutput[index])
-//						+ (fftBufferOutput[index + 1]
-//								* fftBufferOutput[index + 1]));
-//
-//		if (curVal > PeakAmp1) {
-//			PeakAmp3 = PeakAmp2;
-//			PeakAmp2 = PeakAmp1;
-//			PeakAmp1 = curVal;
-//			PeakLocs3 = PeakLocs2;
-//			PeakLocs2 = PeakLocs1;
-//			PeakLocs1 = (uint32_t) ((freqIndex / 2)
-//					* (SAMPLE_RATE_HZ / ((float) FFT_BUFFER_SIZE)));
-//		} else if (curVal > PeakAmp2) {
-//			PeakAmp3 = PeakAmp2;
-//			PeakAmp2 = curVal;
-//			PeakLocs3 = PeakLocs2;
-//			PeakLocs2 = (uint32_t) ((freqIndex / 2)
-//					* (SAMPLE_RATE_HZ / ((float) FFT_BUFFER_SIZE)));
-//		} else if (curVal > PeakAmp3) {
-//			PeakAmp3 = curVal;
-//			PeakLocs3 = (uint32_t) ((freqIndex / 2)
-//					* (SAMPLE_RATE_HZ / ((float) FFT_BUFFER_SIZE)));
-//		}
-//
-//		freqIndex = freqIndex + 2;
-//	}
-//}
-
-void ProcessData() {
-}
-
 //void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc) {
 //
-////	arm_copy_f32(&adcBuffer[0], &inputBuffer[HALF_INPUT_BUFFER_SIZE], FFT_BUFFER_SIZE);
-//	for (int i = 0; i < FFT_BUFFER_SIZE; i++) {
+////	arm_copy_f32(&adcBuffer[0], &inputBuffer[HALF_INPUT_BUFFER_SIZE], OUTPUT_SIGNAL_SIZE);
+//	for (int i = 0; i < OUTPUT_SIGNAL_SIZE; i++) {
 //		inputBuffer[HALF_INPUT_BUFFER_SIZE + i] = (float32_t) adcBuffer[i];
 ////		inputBuffer[HALF_INPUT_BUFFER_SIZE+i] = adcBuffer[i] * INT16_TO_FLOAT;
 ////		inputBuffer[HALF_INPUT_BUFFER_SIZE+i] = (float32_t) adcBuffer[i] * INT_TO_FLOAT;
@@ -713,8 +643,8 @@ void ProcessData() {
 //
 //void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 //
-////	arm_copy_f32(&adcBuffer[HALF_INPUT_BUFFER_SIZE], &inputBuffer[HALF_INPUT_BUFFER_SIZE], FFT_BUFFER_SIZE);
-//	for (int i = 0; i < FFT_BUFFER_SIZE; i++) {
+////	arm_copy_f32(&adcBuffer[HALF_INPUT_BUFFER_SIZE], &inputBuffer[HALF_INPUT_BUFFER_SIZE], OUTPUT_SIGNAL_SIZE);
+//	for (int i = 0; i < OUTPUT_SIGNAL_SIZE; i++) {
 //		inputBuffer[HALF_INPUT_BUFFER_SIZE + i] =
 //				(float32_t) adcBuffer[HALF_INPUT_BUFFER_SIZE + i];
 ////		inputBuffer[HALF_INPUT_BUFFER_SIZE+i] = adcBuffer[HALF_INPUT_BUFFER_SIZE+i] * INT16_TO_FLOAT;
@@ -730,10 +660,13 @@ void ProcessData() {
 int32_t decision_tree_test(void) {
 	const int n_features = 14;
 //	const int n_testcases = testset_samples;
-	float32_t features[] = { tdFeatures.RMS, tdFeatures.VarianceVal, tdFeatures.SigShapeFactor, tdFeatures.SigKurtosisVal,
-			tdFeatures.SigSkewnessVal, tdFeatures.SigImpulseFactor, tdFeatures.SigCrestFactor, tdFeatures.SigMarginFactor,
-			fdFeatures.PeakAmp1, fdFeatures.PeakAmp2, fdFeatures.PeakAmp3, fdFeatures.PeakLocs1, fdFeatures.PeakLocs2, fdFeatures.PeakLocs3 };
-	int errors = 0;
+	float32_t features[] = { tdFeatures.RMS, tdFeatures.VarianceVal,
+			tdFeatures.SigShapeFactor, tdFeatures.SigKurtosisVal,
+			tdFeatures.SigSkewnessVal, tdFeatures.SigImpulseFactor,
+			tdFeatures.SigCrestFactor, tdFeatures.SigMarginFactor,
+			fdFeatures.PeakAmp1, fdFeatures.PeakAmp2, fdFeatures.PeakAmp3,
+			fdFeatures.PeakLocs1, fdFeatures.PeakLocs2, fdFeatures.PeakLocs3 };
+//	int errors = 0;
 //	char msg[80];
 	const int32_t out = model_predict(features, n_features);
 
@@ -753,11 +686,14 @@ int32_t decision_tree_test(void) {
 int32_t extra_trees_test(void) {
 	const int n_features = 14;
 //	const int n_testcases = testset_samples;
-	float32_t features[] = { tdFeatures.RMS, tdFeatures.VarianceVal, tdFeatures.SigShapeFactor, tdFeatures.SigKurtosisVal,
-				tdFeatures.SigSkewnessVal, tdFeatures.SigImpulseFactor, tdFeatures.SigCrestFactor, tdFeatures.SigMarginFactor,
-				fdFeatures.PeakAmp1, fdFeatures.PeakAmp2, fdFeatures.PeakAmp3, fdFeatures.PeakLocs1, fdFeatures.PeakLocs2, fdFeatures.PeakLocs3 };
+	float32_t features[] = { tdFeatures.RMS, tdFeatures.VarianceVal,
+			tdFeatures.SigShapeFactor, tdFeatures.SigKurtosisVal,
+			tdFeatures.SigSkewnessVal, tdFeatures.SigImpulseFactor,
+			tdFeatures.SigCrestFactor, tdFeatures.SigMarginFactor,
+			fdFeatures.PeakAmp1, fdFeatures.PeakAmp2, fdFeatures.PeakAmp3,
+			fdFeatures.PeakLocs1, fdFeatures.PeakLocs2, fdFeatures.PeakLocs3 };
 
-	int errors = 0;
+//	int errors = 0;
 	char msg[80];
 	const int32_t out = model_predict(features, n_features);
 
@@ -766,7 +702,7 @@ int32_t extra_trees_test(void) {
 //			errors += 1;
 //	}
 
-	sprintf(msg, "test extra_trees result=%d \r\n", out);
+	sprintf(msg, "test extra_trees result=%ld \r\n", out);
 	HAL_UART_Transmit(&huart2, (uint8_t*) msg, strlen(msg), HAL_MAX_DELAY);
 	HAL_UART_Transmit(&huart2, (uint8_t*) "\r\n", strlen("\r\n"),
 	HAL_MAX_DELAY);
@@ -777,11 +713,14 @@ int32_t extra_trees_test(void) {
 int32_t gaussian_naive_bayes_test(void) {
 	const int n_features = 14;
 //	const int n_testcases = testset_samples;
-	float32_t features[] = { tdFeatures.RMS, tdFeatures.VarianceVal, tdFeatures.SigShapeFactor, tdFeatures.SigKurtosisVal,
-				tdFeatures.SigSkewnessVal, tdFeatures.SigImpulseFactor, tdFeatures.SigCrestFactor, tdFeatures.SigMarginFactor,
-				fdFeatures.PeakAmp1, fdFeatures.PeakAmp2, fdFeatures.PeakAmp3, fdFeatures.PeakLocs1, fdFeatures.PeakLocs2, fdFeatures.PeakLocs3 };
+	float32_t features[] = { tdFeatures.RMS, tdFeatures.VarianceVal,
+			tdFeatures.SigShapeFactor, tdFeatures.SigKurtosisVal,
+			tdFeatures.SigSkewnessVal, tdFeatures.SigImpulseFactor,
+			tdFeatures.SigCrestFactor, tdFeatures.SigMarginFactor,
+			fdFeatures.PeakAmp1, fdFeatures.PeakAmp2, fdFeatures.PeakAmp3,
+			fdFeatures.PeakLocs1, fdFeatures.PeakLocs2, fdFeatures.PeakLocs3 };
 
-	int errors = 0;
+//	int errors = 0;
 	char msg[80];
 	const int32_t out = model_predict(features, n_features);
 
@@ -790,7 +729,7 @@ int32_t gaussian_naive_bayes_test(void) {
 //			errors += 1;
 //	}
 
-	sprintf(msg, "test gaussian_naive_bayes result=%d \r\n", out);
+	sprintf(msg, "test gaussian_naive_bayes result=%ld \r\n", out);
 	HAL_UART_Transmit(&huart2, (uint8_t*) msg, strlen(msg), HAL_MAX_DELAY);
 	HAL_UART_Transmit(&huart2, (uint8_t*) "\r\n", strlen("\r\n"),
 	HAL_MAX_DELAY);
@@ -801,11 +740,14 @@ int32_t gaussian_naive_bayes_test(void) {
 int32_t random_forest_test(void) {
 	const int n_features = 14;
 //	const int n_testcases = testset_samples;
-	float32_t features[] = { tdFeatures.RMS, tdFeatures.VarianceVal, tdFeatures.SigShapeFactor, tdFeatures.SigKurtosisVal,
-				tdFeatures.SigSkewnessVal, tdFeatures.SigImpulseFactor, tdFeatures.SigCrestFactor, tdFeatures.SigMarginFactor,
-				fdFeatures.PeakAmp1, fdFeatures.PeakAmp2, fdFeatures.PeakAmp3, fdFeatures.PeakLocs1, fdFeatures.PeakLocs2, fdFeatures.PeakLocs3 };
+	float32_t features[] = { tdFeatures.RMS, tdFeatures.VarianceVal,
+			tdFeatures.SigShapeFactor, tdFeatures.SigKurtosisVal,
+			tdFeatures.SigSkewnessVal, tdFeatures.SigImpulseFactor,
+			tdFeatures.SigCrestFactor, tdFeatures.SigMarginFactor,
+			fdFeatures.PeakAmp1, fdFeatures.PeakAmp2, fdFeatures.PeakAmp3,
+			fdFeatures.PeakLocs1, fdFeatures.PeakLocs2, fdFeatures.PeakLocs3 };
 
-	int errors = 0;
+//	int errors = 0;
 	char msg[80];
 	const int32_t out = model_predict(features, n_features);
 
@@ -814,7 +756,7 @@ int32_t random_forest_test(void) {
 //		errors += 1;
 //	}
 
-	sprintf(msg, "test random_forest result=%d \r\n", out);
+	sprintf(msg, "test random_forest result=%ld \r\n", out);
 	HAL_UART_Transmit(&huart2, (uint8_t*) msg, strlen(msg), HAL_MAX_DELAY);
 	HAL_UART_Transmit(&huart2, (uint8_t*) "\r\n", strlen("\r\n"),
 	HAL_MAX_DELAY);

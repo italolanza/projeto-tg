@@ -76,6 +76,8 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 #define SD_SPI_HANDLE hspi2
+#define D7_Pin GPIO_PIN_8		// TODO: Atualizar o arquivo .ioc para gerar o pino do ADC ?
+#define D7_GPIO_Port GPIOA
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

@@ -11,8 +11,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
-static FATFS *fs;   // Sistema de arquivos
-static FIL file;   // Arquivo atual
+static FATFS *fs;	// Sistema de arquivos
+static FIL file;   	// Arquivo atual
 static int isMounted = 0;
 static int isFileOpen = 0;
 
