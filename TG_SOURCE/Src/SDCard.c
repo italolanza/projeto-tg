@@ -47,30 +47,23 @@ FRESULT SDCard_CloseFile(FIL *fileHandle) {
 
 FRESULT SDCard_Read(FIL *fileHandle, void *buffer, size_t bytesToRead,
 		size_t *bytesRead) {
-	if (isFileOpen) {
-		UINT br;
-		FRESULT res = f_read(fileHandle, buffer, bytesToRead, &br);
-		*bytesRead = br;
-		return res;
-	}
-	return FR_NO_FILE;
+
+	UINT br;
+	FRESULT res = f_read(fileHandle, buffer, bytesToRead, &br);
+	*bytesRead = br;
+	return res;
 }
 
 FRESULT SDCard_Write(FIL *fileHandle, const void *buffer, size_t bytesToWrite,
 		size_t *bytesWritten) {
-	if (isFileOpen) {
-		UINT bw;
-		FRESULT res = f_write(fileHandle, buffer, bytesToWrite, &bw);
-		*bytesWritten = bw;
-		return res;
-	}
-	return FR_NO_FILE;
+
+	UINT bw;
+	FRESULT res = f_write(fileHandle, buffer, bytesToWrite, &bw);
+	*bytesWritten = bw;
+	return res;
 }
 
 FRESULT SDCard_ReadLine(FIL *fileHandle, char *buffer, size_t bufferSize) {
-	if (!isFileOpen) {
-		return FR_NO_FILE;
-	}
 
 	size_t index = 0;
 	char ch;
@@ -98,24 +91,22 @@ FRESULT SDCard_ReadLine(FIL *fileHandle, char *buffer, size_t bufferSize) {
 }
 
 FRESULT SDCard_WriteLine(FIL *fileHandle, const char *line) {
-	if (isFileOpen) {
-		size_t len = strlen(line);
-		size_t bytesWritten;
-		if (SDCard_Write(fileHandle, line, len, &bytesWritten) != FR_OK
-				|| bytesWritten != len) {
-			return FR_DISK_ERR;
-		}
 
-		const char newline[] = "\n";
-		if (SDCard_Write(fileHandle, newline, sizeof(newline) - 1,
-				&bytesWritten) != FR_OK
-				|| bytesWritten != (sizeof(newline) - 1)) {
-			return FR_DISK_ERR;
-		}
-
-		return FR_OK;
+	size_t len = strlen(line);
+	size_t bytesWritten;
+	if (SDCard_Write(fileHandle, line, len, &bytesWritten) != FR_OK
+			|| bytesWritten != len) {
+		return FR_DISK_ERR;
 	}
-	return FR_NO_FILE;
+
+	const char newline[] = "\n";
+	if (SDCard_Write(fileHandle, newline, sizeof(newline) - 1,
+			&bytesWritten) != FR_OK
+			|| bytesWritten != (sizeof(newline) - 1)) {
+		return FR_DISK_ERR;
+	}
+
+	return FR_OK;
 }
 
 FRESULT SDCard_OpenFile_S(const char *path, BYTE mode) {
@@ -138,20 +129,34 @@ FRESULT SDCard_CloseFile_S(void) {
 }
 
 FRESULT SDCard_Read_S(void *buffer, size_t bytesToRead, size_t *bytesRead) {
-	return SDCard_Read(&file, buffer, bytesToRead, bytesRead);
+	if (isFileOpen) {
+		return SDCard_Read(&file, buffer, bytesToRead, bytesRead);
+	}
+	return FR_NO_FILE;
 }
 
 FRESULT SDCard_Write_S(const void *buffer, size_t bytesToWrite,
 		size_t *bytesWritten) {
-	return SDCard_Write(&file, buffer, bytesToWrite, bytesWritten);
+	if (isFileOpen) {
+		return SDCard_Write(&file, buffer, bytesToWrite, bytesWritten);
+	}
+	return FR_NO_FILE;
 }
 
 FRESULT SDCard_ReadLine_S(char *buffer, size_t bufferSize) {
+	if (!isFileOpen) {
+		return FR_NO_FILE;
+	}
 	return SDCard_ReadLine(&file, buffer, bufferSize);
 }
 
 FRESULT SDCard_WriteLine_S(const char *buffer) {
-	return SDCard_WriteLine(&file, buffer);
+
+	if (isFileOpen) {
+		return SDCard_WriteLine(&file, buffer);
+	}
+	return FR_NO_FILE;
+
 }
 
 FRESULT SDCard_DeleteFile_S(const char *path) {
