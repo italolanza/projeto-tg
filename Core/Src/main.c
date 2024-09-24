@@ -28,7 +28,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-//#define ARM_MATH_CM4
+#define ARM_MATH_CM4
 #include "arm_math.h"
 #include <stdio.h>
 #include <string.h>
@@ -70,15 +70,14 @@ typedef struct {
 #define HALF_INPUT_BUFFER_SIZE (INPUT_BUFFER_SIZE / 2)
 #define INPUT_SIGNAL_SIZE (INPUT_BUFFER_SIZE * 2)
 #define OUTPUT_SIGNAL_SIZE (INPUT_SIGNAL_SIZE / 2)
-#define SAMPLE_RATE_HZ 44800 //TODO: MUDAR DE ACORDO COM O VALOR REAL MOSTRADO PELO PROJETO
-#define OVERLAP_FACTOR 0.75  // Overlapping de 75%
+#define SAMPLE_RATE_HZ 44800 											//TODO: MUDAR DE ACORDO COM O VALOR REAL MOSTRADO PELO PROJETO
+#define OVERLAP_FACTOR 0.75  											// Overlapping de 75%
 #define ADVANCE_SIZE (int)(INPUT_BUFFER_SIZE * (1.0f - OVERLAP_FACTOR)) // 25% de avanco
 
 //#define INT16_TO_FLOAT (1.0 / (32768.0f))
 //#define FLOAT_TO_INT16 32768.0f
 #define INT_TO_FLOAT (1.0 / (4096.0f))
 #define FLOAT_TO_INT 4096.0f
-
 
 // Definir apenas uma dessas opcoes:
 #define USE_SD_AUDIO           		// Usar audio do cartao SD
@@ -103,27 +102,27 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 // Variaveis comuns
 static volatile int16_t inputBuffer[INPUT_BUFFER_SIZE];	// Buffer para armazenar os dados de entrada (ADC ou arquivo .wav)
-static float32_t inputSignal[INPUT_SIGNAL_SIZE]; // Buffer de entrada da FFT
-float32_t outputSignal[OUTPUT_SIGNAL_SIZE];   				// Buffer de saída para os resultados
-float32_t hanningWindow[OUTPUT_SIGNAL_SIZE]; 				// Buffer para a janela de hanning
+static float32_t inputSignal[INPUT_SIGNAL_SIZE]; 		// Buffer de entrada da FFT
+float32_t outputSignal[OUTPUT_SIGNAL_SIZE]; 			// Buffer de saída para os resultados
+float32_t hanningWindow[OUTPUT_SIGNAL_SIZE]; 			// Buffer para a janela de hanning
 //static volatile uint8_t fftBufferReadyFlag; 			// Variavel que informa se o buffer entrada da FFT esta pronto para processamento
 arm_rfft_fast_instance_f32 fftHandler;					// Esturura para FFT real
 
 #ifdef USE_SD_AUDIO
 int16_t audioBuffer[INPUT_BUFFER_SIZE]; // Buffer para armazenar amostras de áudio lidas do arquivo WAV
-FATFS FatFs; 											// Estrutura do FatFs
-FIL fil;           // Estrtura de um arquivo do FatFs (Arquivo WAV no cartão SD)
-FRESULT fres; 				// Estutura de resultado de uma operacao do FatFs
-UINT bytesRead;                     		// Numero de bytes lidos do arquivo
-WAVHeader wavHeader;				// Estura de um cabecalho de um arquivo .wav
-uint32_t dataSize;	// Variavel para armazenar a quantidade de dados lida do sd card
+FATFS FatFs; 							// Estrutura do FatFs
+FIL fil;           						// Estrtura de um arquivo do FatFs (Arquivo WAV no cartão SD)
+FRESULT fres; 							// Estutura de resultado de uma operacao do FatFs
+UINT bytesRead;                     	// Numero de bytes lidos do arquivo
+WAVHeader wavHeader;					// Estura de um cabecalho de um arquivo .wav
+uint32_t dataSize;						// Variavel para armazenar a quantidade de dados lida do sd card
 #endif
 
 #ifdef USE_MIC_AUDIO
-	int16_t adcBuffer[INPUT_BUFFER_SIZE];					// Buffer de dados do ADC para capturar audio do microfone
-	static volatile uint8_t bufferReadyFlag;				// Variavel que informa se o inputBuffer esta pronto para leitura
-	ADC_HandleTypeDef hadc1;								// Estrutura do ADC
-	TIM_HandleTypeDef htim2;								// Estrutura do Timer 2 para o DMA
+	int16_t adcBuffer[INPUT_BUFFER_SIZE];		// Buffer de dados do ADC para capturar audio do microfone
+	static volatile uint8_t bufferReadyFlag;	// Variavel que informa se o inputBuffer esta pronto para leitura
+	ADC_HandleTypeDef hadc1;					// Estrutura do ADC
+	TIM_HandleTypeDef htim2;					// Estrutura do Timer 2 para o DMA
 #endif
 
 // Time Domain Features
@@ -155,6 +154,7 @@ void createHanningWindow(float32_t *window, int size);
 
 // Funcoes de suporte
 void myprintf(const char *fmt, ...);
+void printFeatures(TDFeatures *tdFeat, FDFeatures *fdFeat);
 
 // Funcoes relacionado a inferencia
 int32_t decision_tree_test(void);
@@ -175,69 +175,6 @@ int32_t run_inference(int32_t (*func)(void));
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void myprintf(const char *fmt, ...) {
-	static char buffer[256];
-	va_list args;
-	va_start(args, fmt);
-	vsnprintf(buffer, sizeof(buffer), fmt, args);
-	va_end(args);
-
-	int len = strlen(buffer);
-	HAL_UART_Transmit(&huart2, (uint8_t*) buffer, len, -1);
-
-}
-
-FRESULT readWAVHeader(FIL *file, WAVHeader *header) {
-	FRESULT res;
-
-	// Ler o cabeçalho do arquivo WAV
-	UINT bytesRead;
-	res = f_read(file, header, sizeof(WAVHeader), &bytesRead);
-
-	if (res != FR_OK || bytesRead != sizeof(WAVHeader)) {
-		// Lidar com erro na leitura do cabeçalho
-		return res;
-	}
-
-	// Verificar se é um arquivo WAV
-	if (strncmp(header->chunkID, "RIFF", 4) != 0
-			|| strncmp(header->format, "WAVE", 4) != 0) {
-		// Lidar com erro - não é um arquivo WAV válido
-		return FR_NOT_ENABLED;
-	}
-
-	// Outras verificações e manipulações podem ser adicionadas conforme necessário
-
-	return FR_OK;
-}
-
-FRESULT readWAVData(FIL *file, void *buffer, UINT numBytesToRead,
-		UINT *numBytesRead) {
-	// Ler dados do arquivo WAV
-	return f_read(file, buffer, numBytesToRead, numBytesRead);
-}
-
-FRESULT readAllWavFile(FIL *file, WAVHeader *header) {
-//	int buffer[1024];
-//	for (int i = 0, i<= header.)
-	return 0;
-}
-
-void printWAVHeader(const WAVHeader *header) {
-	myprintf("chunkID: %.4s \r\n", header->chunkID);
-	myprintf("chunkSize: %u \r\n", header->chunkSize);
-	myprintf("format: %.4s \r\n", header->format);
-	myprintf("subchunk1ID: %.4s \r\n", header->subchunk1ID);
-	myprintf("subchunk1Size: %u \r\n", header->subchunk1Size);
-	myprintf("audioFormat: %u \r\n", header->audioFormat);
-	myprintf("numChannels: %u \r\n", header->numChannels);
-	myprintf("sampleRate: %u \r\n", header->sampleRate);
-	myprintf("byteRate: %u \r\n", header->byteRate);
-	myprintf("blockAlign: %u \r\n", header->blockAlign);
-	myprintf("bitsPerSample: %u \r\n", header->bitsPerSample);
-	myprintf("subchunk2ID: %.4s \r\n", header->subchunk2ID);
-	myprintf("subchunk2Size: %u \r\n", header->subchunk2Size);
-}
 
 /* USER CODE END 0 */
 
@@ -294,7 +231,7 @@ int main(void) {
 	fres = SDCard_OpenFile(&fil, AUDIO_FILE_NAME, FA_READ);
 	if (fres != FR_OK) {
 		myprintf("[ERRO] Erro ao abrir arquivo '%s'. Codigo do erro: (%i)\r\n",
-				AUDIO_FILE_NAME, fres);
+		AUDIO_FILE_NAME, fres);
 
 		SDCard_Unmount();
 
@@ -361,18 +298,24 @@ int main(void) {
 	myprintf("\r\n~ Projeto TG by Italo ~\r\n\r\n");
 
 	// Criar o vetor da janela Hanning
-	arm_fill_f32(0.0f, inputSignal, OUTPUT_SIGNAL_SIZE); 		// Preenche o inputSignal com 0.0 inicialmente
-	arm_fill_f32(1.0f, hanningWindow, OUTPUT_SIGNAL_SIZE); 		// Preenche o hanningWindow com 1.0 inicialmente
-	createHanningWindow(hanningWindow, OUTPUT_SIGNAL_SIZE); 	// Aplica o janelamento Hanning no vetor
+	arm_fill_f32(0.0f, inputSignal, OUTPUT_SIGNAL_SIZE); // Preenche o inputSignal com 0.0 inicialmente
+	arm_fill_f32(1.0f, hanningWindow, OUTPUT_SIGNAL_SIZE); // Preenche o hanningWindow com 1.0 inicialmente
+	createHanningWindow(hanningWindow, OUTPUT_SIGNAL_SIZE); // Aplica o janelamento Hanning no vetor
+
+	myprintf("\r\n~ Processando dados ~\r\n\r\n");
 
 	while (1) {
 #ifdef USE_SD_AUDIO
 
-		size_t bytesToRead = (dataSize > INPUT_BUFFER_SIZE) ? INPUT_BUFFER_SIZE : dataSize;
+		size_t bytesToRead =
+				(dataSize > INPUT_BUFFER_SIZE) ? INPUT_BUFFER_SIZE : dataSize;
+//		myprintf("\r\n~ Lendo arquivo do cartao SD ~\r\n\r\n");
 
+		fres = SDCard_Read(&fil, inputBuffer, bytesToRead, &bytesRead);
+
+//		myprintf("[INFO] SDCard_Read. fres= %d , bytesToRead= %d, bytesRead= %d", fres, bytesToRead, bytesRead);
 		// Ler amostras de audio do arquivo .wav no cartão SD
-		if (SDCard_Read(&fil, inputBuffer, bytesToRead, &bytesRead)
-				== FR_OK && bytesRead > 0) {
+		if ( fres == FR_OK && bytesRead > 0) {
 			// Converter as amostras de 16 bits para float32_t e normalizar
 			for (int i = 0; i < INPUT_BUFFER_SIZE; i++) {
 				// Copia os dados para segunda metade do inputSignal
@@ -386,7 +329,7 @@ int main(void) {
 			// Fecha o arquivo WAV e desmontar o sistema de arquivos
 			SDCard_CloseFile(&fil);
 			SDCard_Unmount();
-
+			myprintf("\r\n~ Fim do arquivo ~\r\n\r\n");
 			break;
 		}
 #endif
@@ -403,48 +346,50 @@ int main(void) {
 #endif
 
 		// Processamento dos dados lidos (no buffer) necessário
+
 		//  Overlapping de 75% antes do janelamento
-		for (int n = (int)(INPUT_BUFFER_SIZE * (1.0f - OVERLAP_FACTOR)); n <= INPUT_BUFFER_SIZE; n = n + (INPUT_BUFFER_SIZE * ADVANCE_SIZE)) {
+		for (int n = (int) (INPUT_BUFFER_SIZE * (1.0f - OVERLAP_FACTOR));
+				n <= INPUT_BUFFER_SIZE;
+				n = n + (INPUT_BUFFER_SIZE * ADVANCE_SIZE )) {
 
 			/* Pre-processamento --------------------------------------------------------*/
 
 			// TODO: Testar possivel otimizacao removendo essa copia inicial e
 			//       fazendo a multiplicacao direta da janela com o input buffer
-
 			//  Overlapping de 75% antes do janelamento
 //			arm_copy_f32(&inputBuffer[n], inputSignal, OUTPUT_SIGNAL_SIZE);
-
 			// Aplica a janela de hanning no buffer de entrada da fft
-			arm_mult_f32(inputSignal, hanningWindow, inputSignal, OUTPUT_SIGNAL_SIZE);
+			arm_mult_f32(inputSignal, hanningWindow, inputSignal,
+					OUTPUT_SIGNAL_SIZE);
 
 			// Calcula fft usando a biblioteca da ARM
 			arm_rfft_fast_f32(&fftHandler, inputSignal, outputSignal, 0); // o ultimo argumento significa que nao queremos calcular a fft inversa
 
-
 			/* Extracao das Features no Dominio do Tempo --------------------------------*/
 
 //			uint32_t startTick = SysTick->VAL;
-			extractTimeDomainFeatures(&tdFeatures, inputSignal,	OUTPUT_SIGNAL_SIZE);
+			extractTimeDomainFeatures(&tdFeatures, inputSignal,
+					OUTPUT_SIGNAL_SIZE);
 //			uint32_t endTick = SysTick->VAL;
-
 
 			/* Extracao das Features no Dominio da Frequencia ---------------------------*/
 
 //			uint32_t startTick = SysTick->VAL;
-			extractFrequencyDomainFeatures(&fdFeatures, outputSignal, INPUT_BUFFER_SIZE, sampleRate);
+			extractFrequencyDomainFeatures(&fdFeatures, outputSignal,
+					INPUT_BUFFER_SIZE, sampleRate);
 //			uint32_t endTick = SysTick->VAL;
 
-
 			/* Faz Inferencia -----------------------------------------------------------*/
-			int32_t result = run_inference(decision_tree_test);
+//			int32_t result = run_inference(decision_tree_test);
 			// TODO: Imprimir no console as features
-//			myprintf("%d %d %d %d %d %d \r\n", PeakAmp1, PeakAmp2, PeakAmp3, PeakLocs1, PeakLocs2, PeakLocs3);
-			myprintf("Inference result: %d\r\n", result);
+			printFeatures(&tdFeatures, &fdFeatures);
+//			myprintf("Inference result: %d\r\n", result);
 
 		}
 
 		// Atualiza a primeira metade do inputSignal para proxima janela de dados
-		arm_copy_f32(&inputSignal[INPUT_BUFFER_SIZE], &inputSignal[0], OUTPUT_SIGNAL_SIZE);
+		arm_copy_f32(&inputSignal[INPUT_BUFFER_SIZE], &inputSignal[0],
+				OUTPUT_SIGNAL_SIZE);
 
 #ifdef USE_MIC_AUDIO
 		bufferReadyFlag = 0;
@@ -454,6 +399,7 @@ int main(void) {
 		/* USER CODE BEGIN 3 */
 	}
 
+	myprintf("\r\n~ Fim ~\r\n\r\n");
 	while (1) {
 		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 		HAL_Delay(1000);
@@ -623,6 +569,91 @@ void createHanningWindow(float32_t *window, int size) {
 	for (int n = 0; n < size; n++) {
 		window[n] = window[n] * (0.5 - 0.5 * cos(2.0 * M_PI * n / (size - 1)));
 	}
+}
+
+void myprintf(const char *fmt, ...) {
+	static char buffer[256];
+	va_list args;
+	va_start(args, fmt);
+	vsnprintf(buffer, sizeof(buffer), fmt, args);
+	va_end(args);
+
+	int len = strlen(buffer);
+	HAL_UART_Transmit(&huart2, (uint8_t*) buffer, len, -1);
+
+}
+
+void printFeatures(TDFeatures *tdFeat, FDFeatures *fdFeat) {
+//	RMS,~~Mean~~,~~Median~~,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3,~~FalutID~~
+	myprintf("%G,%G,%G,%G,%G,%G,%G,%G,%G,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
+			tdFeat->RMS,
+			tdFeat->VarianceVal,
+			tdFeat->SigSkewnessVal,
+			tdFeat->SigKurtosisVal,
+			tdFeat->SigKurtosisVal,
+			tdFeat->SigCrestFactor,
+			tdFeat->SigShapeFactor,
+			tdFeat->SigImpulseFactor,
+			tdFeat->SigMarginFactor,
+			fdFeat->PeakAmp1,
+			fdFeat->PeakAmp2,
+			fdFeat->PeakAmp3,
+			fdFeat->PeakLocs1,
+			fdFeat->PeakLocs2,
+			fdFeat->PeakLocs3
+			);
+}
+
+FRESULT readWAVHeader(FIL *file, WAVHeader *header) {
+	FRESULT res;
+
+	// Ler o cabeçalho do arquivo WAV
+	UINT bytesRead;
+	res = f_read(file, header, sizeof(WAVHeader), &bytesRead);
+
+	if (res != FR_OK || bytesRead != sizeof(WAVHeader)) {
+		// Lidar com erro na leitura do cabeçalho
+		return res;
+	}
+
+	// Verificar se é um arquivo WAV
+	if (strncmp(header->chunkID, "RIFF", 4) != 0
+			|| strncmp(header->format, "WAVE", 4) != 0) {
+		// Lidar com erro - não é um arquivo WAV válido
+		return FR_NOT_ENABLED;
+	}
+
+	// Outras verificações e manipulações podem ser adicionadas conforme necessário
+
+	return FR_OK;
+}
+
+FRESULT readWAVData(FIL *file, void *buffer, UINT numBytesToRead,
+		UINT *numBytesRead) {
+	// Ler dados do arquivo WAV
+	return f_read(file, buffer, numBytesToRead, numBytesRead);
+}
+
+FRESULT readAllWavFile(FIL *file, WAVHeader *header) {
+//	int buffer[1024];
+//	for (int i = 0, i<= header.)
+	return 0;
+}
+
+void printWAVHeader(const WAVHeader *header) {
+	myprintf("chunkID: %.4s \r\n", header->chunkID);
+	myprintf("chunkSize: %u \r\n", header->chunkSize);
+	myprintf("format: %.4s \r\n", header->format);
+	myprintf("subchunk1ID: %.4s \r\n", header->subchunk1ID);
+	myprintf("subchunk1Size: %u \r\n", header->subchunk1Size);
+	myprintf("audioFormat: %u \r\n", header->audioFormat);
+	myprintf("numChannels: %u \r\n", header->numChannels);
+	myprintf("sampleRate: %u \r\n", header->sampleRate);
+	myprintf("byteRate: %u \r\n", header->byteRate);
+	myprintf("blockAlign: %u \r\n", header->blockAlign);
+	myprintf("bitsPerSample: %u \r\n", header->bitsPerSample);
+	myprintf("subchunk2ID: %.4s \r\n", header->subchunk2ID);
+	myprintf("subchunk2Size: %u \r\n", header->subchunk2Size);
 }
 
 //void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc) {
