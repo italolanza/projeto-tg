@@ -66,6 +66,8 @@ typedef struct {
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define AUDIO_FILE_NAME "audio.wav"
+#define CSV_FILE_NAME "audio.csv"
+#define CSV_HEADER "RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3"
 #define INPUT_BUFFER_SIZE 4096
 #define HALF_INPUT_BUFFER_SIZE (INPUT_BUFFER_SIZE / 2)
 #define INPUT_SIGNAL_SIZE (INPUT_BUFFER_SIZE * 2)
@@ -111,7 +113,8 @@ arm_rfft_fast_instance_f32 fftHandler;					// Esturura para FFT real
 #ifdef USE_SD_AUDIO
 int16_t audioBuffer[INPUT_BUFFER_SIZE]; // Buffer para armazenar amostras de áudio lidas do arquivo WAV
 FATFS FatFs; 							// Estrutura do FatFs
-FIL fil;           						// Estrtura de um arquivo do FatFs (Arquivo WAV no cartão SD)
+FIL inputFile;           				// Estrtura de um arquivo do FatFs (Arquivo WAV no cartão SD)
+FIL outputFile;           				// Estrtura de um arquivo do FatFs (Arquivo csv no cartão SD)
 FRESULT fres; 							// Estutura de resultado de uma operacao do FatFs
 UINT bytesRead;                     	// Numero de bytes lidos do arquivo
 WAVHeader wavHeader;					// Estura de um cabecalho de um arquivo .wav
@@ -155,6 +158,10 @@ void createHanningWindow(float32_t *window, int size);
 // Funcoes de suporte
 void myprintf(const char *fmt, ...);
 void printFeatures(TDFeatures *tdFeat, FDFeatures *fdFeat);
+void formatFeaturestoString(char **bufferPtr, TDFeatures *tdFeat, FDFeatures *fdFeat);
+int createFormatedString(char **bufferPtr, const char *fmt, ...);
+
+
 
 // Funcoes relacionado a inferencia
 int32_t decision_tree_test(void);
@@ -173,7 +180,7 @@ int32_t run_inference(int32_t (*func)(void));
 
 /* USER CODE END PFP */
 
-/* Private user code ---------------------------------------------------------*/
+/* Private user code -----------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
 /* USER CODE END 0 */
@@ -228,10 +235,10 @@ int main(void) {
 	}
 
 	// Tenta abrir o arquivo com o nome defino pela flag AUDIO_FILE_NAME
-	fres = SDCard_OpenFile(&fil, AUDIO_FILE_NAME, FA_READ);
+	fres = SDCard_OpenFile(&inputFile, AUDIO_FILE_NAME, FA_READ);
 	if (fres != FR_OK) {
 		myprintf("[ERRO] Erro ao abrir arquivo '%s'. Codigo do erro: (%i)\r\n",
-		AUDIO_FILE_NAME, fres);
+				AUDIO_FILE_NAME, fres);
 
 		SDCard_Unmount();
 
@@ -239,15 +246,29 @@ int main(void) {
 		} // loop infinito para travar a execucao do programa
 	}
 
+	// Tenta criar o arquivo com o nome defino pela flag CSV_FILE_NAME
+	fres = SDCard_OpenFile(&outputFile, CSV_FILE_NAME, FA_CREATE_ALWAYS | FA_WRITE);
+		if (fres != FR_OK) {
+			myprintf("[ERRO] Erro ao abrir arquivo '%s'. Codigo do erro: (%i)\r\n",
+					CSV_FILE_NAME, fres);
+
+			SDCard_CloseFile(&inputFile);
+			SDCard_Unmount();
+
+			while (1) {
+			} // loop infinito para travar a execucao do programa
+		}
+
 	// Ler o cabeçalho do arquivo WAV
-	fres = readWAVHeader(&fil, &wavHeader);
+	fres = readWAVHeader(&inputFile, &wavHeader);
 	if (fres != FR_OK) {
 		// Lidar com erros na leitura do cabeçalho
 		myprintf(
 				"[ERRO] Erro ao abrir arquivo '.wav'. Codigo do erro: (%i)\r\n",
 				fres);
 
-		SDCard_CloseFile(&fil);
+		SDCard_CloseFile(&inputFile);
+		SDCard_CloseFile(&outputFile);
 		SDCard_Unmount();
 
 		while (1) {
@@ -304,6 +325,11 @@ int main(void) {
 
 	myprintf("\r\n~ Processando dados ~\r\n\r\n");
 
+	char *outputString; 	// variavel para armazenar a string de saida
+//	int outputStringSize;	// tamanho da string descontando o caracter nulo
+
+	SDCard_WriteLine(&outputFile, CSV_HEADER);
+
 	while (1) {
 #ifdef USE_SD_AUDIO
 
@@ -311,7 +337,7 @@ int main(void) {
 				(dataSize > INPUT_BUFFER_SIZE) ? INPUT_BUFFER_SIZE : dataSize;
 //		myprintf("\r\n~ Lendo arquivo do cartao SD ~\r\n\r\n");
 
-		fres = SDCard_Read(&fil, inputBuffer, bytesToRead, &bytesRead);
+		fres = SDCard_Read(&inputFile, inputBuffer, bytesToRead, &bytesRead);
 
 //		myprintf("[INFO] SDCard_Read. fres= %d , bytesToRead= %d, bytesRead= %d", fres, bytesToRead, bytesRead);
 		// Ler amostras de audio do arquivo .wav no cartão SD
@@ -324,12 +350,13 @@ int main(void) {
 			}
 		} else {
 			// Erro de leitura ou fim de arquivo
-			//f_lseek(&fil, 44); 	// Reinicia o arquivo (ciclo)
+			//f_lseek(&inputFile, 44); 	// Reinicia o arquivo (ciclo)
 
-			// Fecha o arquivo WAV e desmontar o sistema de arquivos
-			SDCard_CloseFile(&fil);
+			// Fecha os arquivos WAV, CSV e desmontar o sistema de arquivos
+			SDCard_CloseFile(&inputFile);
+			SDCard_CloseFile(&outputFile);
 			SDCard_Unmount();
-			myprintf("\r\n~ Fim do arquivo ~\r\n\r\n");
+			myprintf("\r\n~ Fim do processamento ~\r\n\r\n");
 			break;
 		}
 #endif
@@ -337,6 +364,7 @@ int main(void) {
 #ifdef USE_MIC_AUDIO
 		// Capturar dados do microfone via ADC
 		sampleRate = SAMPLE_RATE_HZ;
+
 
 		// Copia os dados para segunda metade do inputSignal
 		for (int i = 0; i < INPUT_BUFFER_SIZE; i++) {
@@ -346,7 +374,6 @@ int main(void) {
 #endif
 
 		// Processamento dos dados lidos (no buffer) necessário
-
 		//  Overlapping de 75% antes do janelamento
 		for (int n = (int) (INPUT_BUFFER_SIZE * (1.0f - OVERLAP_FACTOR));
 				n <= INPUT_BUFFER_SIZE;
@@ -383,6 +410,8 @@ int main(void) {
 //			int32_t result = run_inference(decision_tree_test);
 			// TODO: Imprimir no console as features
 			printFeatures(&tdFeatures, &fdFeatures);
+			formatFeaturestoString(&outputString, &tdFeatures, &fdFeatures);
+			SDCard_WriteLine(&outputFile, outputString);
 //			myprintf("Inference result: %d\r\n", result);
 
 		}
@@ -391,6 +420,7 @@ int main(void) {
 		arm_copy_f32(&inputSignal[INPUT_BUFFER_SIZE], &inputSignal[0],
 				OUTPUT_SIGNAL_SIZE);
 
+		// Desaloca memoria usado para escrever no SDCard
 #ifdef USE_MIC_AUDIO
 		bufferReadyFlag = 0;
 #endif
@@ -602,6 +632,56 @@ void printFeatures(TDFeatures *tdFeat, FDFeatures *fdFeat) {
 			fdFeat->PeakLocs2,
 			fdFeat->PeakLocs3
 			);
+}
+
+void formatFeaturestoString(char **bufferPtr, TDFeatures *tdFeat, FDFeatures *fdFeat) {
+	createFormatedString(
+			bufferPtr,
+			"%G,%G,%G,%G,%G,%G,%G,%G,%G,%ld,%ld,%ld,%ld,%ld,%ld",
+			tdFeat->RMS,
+			tdFeat->VarianceVal,
+			tdFeat->SigSkewnessVal,
+			tdFeat->SigKurtosisVal,
+			tdFeat->SigKurtosisVal,
+			tdFeat->SigCrestFactor,
+			tdFeat->SigShapeFactor,
+			tdFeat->SigImpulseFactor,
+			tdFeat->SigMarginFactor,
+			fdFeat->PeakAmp1,
+			fdFeat->PeakAmp2,
+			fdFeat->PeakAmp3,
+			fdFeat->PeakLocs1,
+			fdFeat->PeakLocs2,
+			fdFeat->PeakLocs3
+			);
+}
+
+int createFormatedString(char **bufferPtr, const char *fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+
+	// Calcula o tamanho necessario
+	int len = vsnprintf(NULL, 0, fmt, args);
+	va_end(args);
+
+	if (len < 0) {
+		return -1;  // Erro ao calcular o tamanho
+	}
+
+	// Aloca memoria suficiente para a string
+	*bufferPtr = (char *)malloc(len + 1);  // +1 para o terminador nulo
+
+	if (*bufferPtr == NULL) {
+		return -1;  // Falha na alocacao de memoria
+	}
+
+	// Escreve a string formatada no buffer alocado
+	va_start(args, fmt);
+	int result = vsnprintf(*bufferPtr, len + 1, fmt, args);  // Escreve a string
+	va_end(args);
+
+	// Retorna o numero de caracteres escritos (sem o terminador nulo)
+	return result;
 }
 
 FRESULT readWAVHeader(FIL *file, WAVHeader *header) {
