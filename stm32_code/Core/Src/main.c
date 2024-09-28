@@ -102,15 +102,15 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 // Variaveis comuns
-static volatile int16_t inputBuffer[INPUT_BUFFER_SIZE];	// Buffer para armazenar os dados de entrada (ADC ou arquivo .wav)
-static float32_t inputSignal[INPUT_SIGNAL_SIZE]; 		// Buffer de entrada da FFT
-float32_t outputSignal[OUTPUT_SIGNAL_SIZE]; 			// Buffer de saída para os resultados
-float32_t hanningWindow[OUTPUT_SIGNAL_SIZE]; 			// Buffer para a janela de hanning
-//static volatile uint8_t fftBufferReadyFlag; 			// Variavel que informa se o buffer entrada da FFT esta pronto para processamento
-arm_rfft_fast_instance_f32 fftHandler;					// Esturura para FFT real
+static volatile int16_t inputBuffer[INPUT_BUFFER_SIZE] = {0};	// Buffer para armazenar os dados de entrada (ADC ou arquivo .wav)
+static float32_t inputSignal[INPUT_SIGNAL_SIZE] = {0}; 		   	// Buffer de entrada da FFT
+float32_t outputSignal[OUTPUT_SIGNAL_SIZE] = {0}; 				// Buffer de saída para os resultados da FFT
+float32_t hanningWindow[OUTPUT_SIGNAL_SIZE]= {0}; 				// Buffer para a janela de hanning
+//static volatile uint8_t fftBufferReadyFlag; 					// Variavel que informa se o buffer entrada da FFT esta pronto para processamento
+arm_rfft_fast_instance_f32 fftHandler;							// Esturura para FFT real
 
 #ifdef USE_SD_AUDIO
-int16_t audioBuffer[INPUT_BUFFER_SIZE]; // Buffer para armazenar amostras de áudio lidas do arquivo WAV
+int16_t volatile audioBuffer[INPUT_BUFFER_SIZE] = {0}; // Buffer para armazenar amostras de áudio lidas do arquivo WAV
 FATFS FatFs; 							// Estrutura do FatFs
 FIL inputFile;           				// Estrtura de um arquivo do FatFs (Arquivo WAV no cartão SD)
 FIL outputFile;           				// Estrtura de um arquivo do FatFs (Arquivo csv no cartão SD)
@@ -318,7 +318,7 @@ int main(void) {
 	myprintf("\r\n~ Projeto TG by Italo ~\r\n\r\n");
 
 	// Criar o vetor da janela Hanning
-	arm_fill_f32(0.0f, inputSignal, OUTPUT_SIGNAL_SIZE); // Preenche o inputSignal com 0.0 inicialmente
+//	arm_fill_f32(0.0f, inputSignal, OUTPUT_SIGNAL_SIZE); // Preenche o inputSignal com 0.0 inicialmente
 	arm_fill_f32(1.0f, hanningWindow, OUTPUT_SIGNAL_SIZE); // Preenche o hanningWindow com 1.0 inicialmente
 	createHanningWindow(hanningWindow, OUTPUT_SIGNAL_SIZE); // Aplica o janelamento Hanning no vetor
 
@@ -353,8 +353,11 @@ int main(void) {
 
 			// Fecha os arquivos WAV, CSV e desmontar o sistema de arquivos
 			SDCard_CloseFile(&inputFile);
+			myprintf("[INFO] Fechando arquivo \"%s\". Codigo do erro: (%i)\r\n", AUDIO_FILE_NAME, fres);
 			SDCard_CloseFile(&outputFile);
+			myprintf("[INFO] Fechando arquivo \"%s\". Codigo do erro: (%i)\r\n", CSV_FILE_NAME, fres);
 			SDCard_Unmount();
+			myprintf("[INFO] Desmontando FatFs. Codigo do erro: (%i)\r\n", fres);
 			myprintf("\r\n~ Fim do processamento ~\r\n\r\n");
 			break;
 		}
@@ -371,38 +374,37 @@ int main(void) {
 //			inputSignal[INPUT_BUFFER_SIZE + i] = (float32_t) adcBuffer[i] / 4096.0f; // Normalizaçcao de 12 bits (4096) para float
 		}
 #endif
+		/* Pre-processamento --------------------------------------------------------*/
 
+		// TODO: Testar possivel otimizacao removendo essa copia inicial e
+		//       fazendo a multiplicacao direta da janela com o input buffer
+		//  Overlapping de 75% antes do janelamento
+//			arm_copy_f32(&inputBuffer[n], inputSignal, OUTPUT_SIGNAL_SIZE);
+		// Aplica a janela de hanning no buffer de entrada da fft
+		arm_mult_f32(inputSignal, hanningWindow, inputSignal,
+				OUTPUT_SIGNAL_SIZE);
 		// Processamento dos dados lidos (no buffer) necessário
 		//  Overlapping de 75% antes do janelamento
 		for (int n = (int) (INPUT_BUFFER_SIZE * (1.0f - OVERLAP_FACTOR));
 				n <= INPUT_BUFFER_SIZE;
 				n = n + (INPUT_BUFFER_SIZE * ADVANCE_SIZE )) {
 
-			/* Pre-processamento --------------------------------------------------------*/
-
-			// TODO: Testar possivel otimizacao removendo essa copia inicial e
-			//       fazendo a multiplicacao direta da janela com o input buffer
-			//  Overlapping de 75% antes do janelamento
-//			arm_copy_f32(&inputBuffer[n], inputSignal, OUTPUT_SIGNAL_SIZE);
-			// Aplica a janela de hanning no buffer de entrada da fft
-			arm_mult_f32(inputSignal, hanningWindow, inputSignal,
-					OUTPUT_SIGNAL_SIZE);
 
 			// Calcula fft usando a biblioteca da ARM
-			arm_rfft_fast_f32(&fftHandler, inputSignal, outputSignal, 0); // o ultimo argumento significa que nao queremos calcular a fft inversa
+			arm_rfft_fast_f32(&fftHandler, &inputSignal[n], outputSignal, 0); // o ultimo argumento significa que nao queremos calcular a fft inversa
 
 			/* Extracao das Features no Dominio do Tempo --------------------------------*/
 
 //			uint32_t startTick = SysTick->VAL;
-			extractTimeDomainFeatures(&tdFeatures, inputSignal,
-					OUTPUT_SIGNAL_SIZE);
+			extractTimeDomainFeatures(&tdFeatures, &inputSignal[n],
+					INPUT_BUFFER_SIZE);
 //			uint32_t endTick = SysTick->VAL;
 
 			/* Extracao das Features no Dominio da Frequencia ---------------------------*/
 
 //			uint32_t startTick = SysTick->VAL;
 			extractFrequencyDomainFeatures(&fdFeatures, outputSignal,
-					INPUT_BUFFER_SIZE, sampleRate);
+					OUTPUT_SIGNAL_SIZE, sampleRate);
 //			uint32_t endTick = SysTick->VAL;
 
 			/* Faz Inferencia -----------------------------------------------------------*/
@@ -410,7 +412,10 @@ int main(void) {
 			// TODO: Imprimir no console as features
 			printFeatures(&tdFeatures, &fdFeatures);
 			formatFeaturestoString(&outputString, &tdFeatures, &fdFeatures);
-			SDCard_WriteLine(&outputFile, outputString);
+			fres =  SDCard_WriteLine(&outputFile, outputString);
+			if (fres != FR_OK) {
+				myprintf("[ERRO] Erro ao escrever linha no arquivo '%s'. Codigo do erro: (%i)\r\n", CSV_FILE_NAME, fres);
+			}
 //			myprintf("Inference result: %d\r\n", result);
 
 		}
