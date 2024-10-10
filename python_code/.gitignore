@@ -1,0 +1,82 @@
+# Arquivos do sistema operacional
+.DS_Store
+Thumbs.db
+
+# Ambientes virtuais
+venv/
+.env/
+.penv/
+.venv/
+poetry.lock
+
+# Arquivos de cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Arquivos de configurações do editor
+.idea/
+.vscode/
+*.swp
+*~
+*.bak
+*.tmp
+
+# Diretórios criados pelo Poetry
+.cache/
+.mypy_cache/
+.pytest_cache/
+.tox/
+dist/
+build/
+eggs/
+*.egg-info/
+
+# Módulos distribuídos no Python
+*.egg
+*.whl
+
+# Logs e dados temporários
+*.log
+*.pid
+*.gz
+*.bz2
+
+# PyInstaller
+#  geralmente cria estes diretórios ao gerar executáveis
+dist/
+build/
+*.spec
+
+# Arquivos de Jupyter Notebook
+.ipynb_checkpoints/
+
+# Arquivos de teste de cobertura
+.coverage
+htmlcov/
+*.cover
+*.coverage.*
+.cache/
+
+# Arquivos pytest
+pytestdebug.log
+
+# Arquivos de linter e ferramentas de formatação
+pylint-report.txt
+pylint.log
+flake-report.txt
+black-report.txt
+
+# Arquivos criados pelo Poetry
+poetry.lock
+poetry.toml
+
+# Arquivos Pyenv
+.python-version
+
+# Arquivos do arquivo de ambiente Python local
+.env
+.env.*
+
+# Arquivos de pacotes instalados localmente
+site/

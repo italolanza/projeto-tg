@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "projeto-tg"
+version = "0.1.0"
+description = ""
+authors = ["Italo Milhomem de Abreu Lanza <itmilhomem@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+jupyter = "^1.1.1"
+pandas = "^2.2.3"
+soundfile = "^0.12.1"
+scikit-learn = "^1.5.2"
+numpy = "^2.1.2"
+notebook = "^7.2.2"
+ipykernel = "^6.29.5"
+
+
+[tool.poetry.group.dev.dependencies]
+poetry-plugin-export = "^1.8.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

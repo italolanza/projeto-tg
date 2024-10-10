@@ -1,7 +1,8 @@
 import numpy as np
-from scipy.signal import sosfreqz, sosfilt, iirdesign, hann, find_peaks
+from scipy.signal import sosfreqz, sosfilt, iirdesign, find_peaks
+from scipy.signal.windows import hann
 from scipy.stats import skew, kurtosis
-from doFilterHP import HighpassFilter
+from .doFilterHP import HighpassFilter
 
 filtro_hp = HighpassFilter()
 
