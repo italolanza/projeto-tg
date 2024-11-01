@@ -44,6 +44,8 @@ poetry run python -m ipykernel install --user --name="Projeto-tg" --display-name
 poetry run jupyter notebook
 ```
 
+- Depois abra o VSCode e selecione o Kernel criado previamente (`Kernel TG`).
+
 ## Link Repositorio Artigo Base
 
 + [Repositorio Artigo](https://github.com/RashadShubita/Fault-Detection-using-TinyML)
