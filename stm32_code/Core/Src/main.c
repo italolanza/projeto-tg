@@ -64,8 +64,16 @@ typedef struct {
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define AUDIO_FILE_NAME "input.wav"
-#define CSV_FILE_NAME "output.csv"
+/*
+ * health.wav
+ * f1.wav
+ * f2.wav
+ * f3.wav
+ * off.wav
+ */
+
+#define AUDIO_FILE_NAME "health.wav"
+#define CSV_FILE_NAME "health.csv"
 #define CSV_HEADER "RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3"
 #define INPUT_BUFFER_SIZE 4096
 #define HALF_INPUT_BUFFER_SIZE (INPUT_BUFFER_SIZE / 2)
@@ -340,7 +348,7 @@ int main(void) {
 
 //		myprintf("[INFO] SDCard_Read. fres= %d , bytesToRead= %d, bytesRead= %d", fres, bytesToRead, bytesRead);
 		// Ler amostras de audio do arquivo .wav no cartão SD
-		if ( fres == FR_OK && bytesRead > 0) {
+		if ( fres == FR_OK && bytesRead >= INPUT_BUFFER_SIZE) {
 			// Converter as amostras de 16 bits para float32_t e normalizar
 			for (int i = 0; i < INPUT_BUFFER_SIZE; i++) {
 				// Copia os dados para segunda metade do inputSignal
@@ -383,24 +391,27 @@ int main(void) {
 		// Aplica a janela de hanning no buffer de entrada da fft
 		arm_mult_f32(inputSignal, hanningWindow, inputSignal,
 				OUTPUT_SIGNAL_SIZE);
+		float32_t data[INPUT_BUFFER_SIZE];
 		// Processamento dos dados lidos (no buffer) necessário
 		//  Overlapping de 75% antes do janelamento
 		for (int n = (int) (INPUT_BUFFER_SIZE * (1.0f - OVERLAP_FACTOR));
 				n <= INPUT_BUFFER_SIZE;
-				n = n + (INPUT_BUFFER_SIZE * ADVANCE_SIZE )) {
+				n = n + ADVANCE_SIZE ) {
 
-
-			// Calcula fft usando a biblioteca da ARM
-			arm_rfft_fast_f32(&fftHandler, &inputSignal[n], outputSignal, 0); // o ultimo argumento significa que nao queremos calcular a fft inversa
-
+			//TODO: Implementar buffer intermediario para uso na fft\
+			// Copia dados do input buffer para array que vai ser utilizado para processamento
+			arm_copy_f32(&inputSignal[n], &data[0], OUTPUT_SIGNAL_SIZE);
 			/* Extracao das Features no Dominio do Tempo --------------------------------*/
 
 //			uint32_t startTick = SysTick->VAL;
-			extractTimeDomainFeatures(&tdFeatures, &inputSignal[n],
+			extractTimeDomainFeatures(&tdFeatures, &data,
 					INPUT_BUFFER_SIZE);
 //			uint32_t endTick = SysTick->VAL;
 
 			/* Extracao das Features no Dominio da Frequencia ---------------------------*/
+
+			// Calcula fft usando a biblioteca da ARM
+			arm_rfft_fast_f32(&fftHandler, &data, outputSignal, 0); // o ultimo argumento significa que nao queremos calcular a fft inversa
 
 //			uint32_t startTick = SysTick->VAL;
 			extractFrequencyDomainFeatures(&fdFeatures, outputSignal,
@@ -416,8 +427,9 @@ int main(void) {
 			if (fres != FR_OK) {
 				myprintf("[ERRO] Erro ao escrever linha no arquivo '%s'. Codigo do erro: (%i)\r\n", CSV_FILE_NAME, fres);
 			}
-//			myprintf("Inference result: %d\r\n", result);
 
+//			myprintf("Inference result: %d\r\n", result);
+			free(outputString); // libera a memoria alocada na funcao de formatar string
 		}
 
 		// Atualiza a primeira metade do inputSignal para proxima janela de dados
