@@ -91,8 +91,9 @@ def ExtractTimeDomainFeatures(DataBuff, BufferLen, Fs):
     SigImpulseFactor = Max / MeanAbs
     SigMarginFactor = Max / (MeanAbs**2)
     
-    return (SigRMS, SigMean, SigMedian, SigVariance, SigSkewness, SigKurtosis, 
-            SigCrestFactor, SigShapeFactor, SigImpulseFactor, SigMarginFactor)
+    # return (SigRMS, SigMean, SigMedian, SigVariance, SigSkewness, SigKurtosis, 
+            # SigCrestFactor, SigShapeFactor, SigImpulseFactor, SigMarginFactor)
+    return (SigRMS, SigVariance, SigSkewness, SigKurtosis, SigCrestFactor, SigShapeFactor, SigImpulseFactor, SigMarginFactor)
 
 
 def ExtractFrequencyDomainFeatures(DataBuff, BufferLen, Fs):
