@@ -72,10 +72,10 @@ typedef struct {
  * off.wav
  */
 
-#define AUDIO_FILE_NAME "health.wav"
-#define CSV_FILE_NAME "health.csv"
+#define AUDIO_FILE_NAME "off.wav"
+#define CSV_FILE_NAME "off.csv"
 #define CSV_HEADER "RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3"
-#define INPUT_BUFFER_SIZE 4096
+#define INPUT_BUFFER_SIZE 2048
 #define HALF_INPUT_BUFFER_SIZE (INPUT_BUFFER_SIZE / 2)
 #define INPUT_SIGNAL_SIZE (INPUT_BUFFER_SIZE * 2)
 #define OUTPUT_SIGNAL_SIZE (INPUT_SIGNAL_SIZE / 2)
@@ -153,8 +153,8 @@ static void MX_SPI2_Init(void);
 // Prototipos relacionados a leitura de arquivos de audio no SDCard
 #ifdef USE_SD_AUDIO
 FRESULT readWAVHeader(FIL *file, WAVHeader *header);
-FRESULT readWAVData(FIL *file, void *buffer, UINT numBytesToRead,
-		UINT *numBytesRead);
+FRESULT readWAVData(FIL *file, void *buffer, size_t numSamplesToRead,
+		size_t *numBytesRead);
 void printWAVHeader(const WAVHeader *header);
 FRESULT readAllWavFile(FIL *file, WAVHeader *header);
 #endif
@@ -225,8 +225,7 @@ int main(void) {
 	/* USER CODE BEGIN 2 */
 
 	uint32_t sampleRate;
-//	uint16_t numChannels;
-//	uint16_t bitsPerSample;
+	size_t sampleSize;
 
 #ifdef USE_SD_AUDIO
 	MX_FATFS_Init();
@@ -290,8 +289,7 @@ int main(void) {
 
 		// Acessando os campos do cabeçalho WAV
 		sampleRate = wavHeader.sampleRate;
-//		numChannels = wavHeader.numChannels;
-//		bitsPerSample = wavHeader.bitsPerSample;
+		sampleSize = (size_t) ( (wavHeader.bitsPerSample * wavHeader.numChannels) / 8);
 
 		// Agora, leia os dados do arquivo com base nas informações do cabeçalho
 		dataSize = wavHeader.subchunk2Size;
@@ -341,14 +339,13 @@ int main(void) {
 #ifdef USE_SD_AUDIO
 
 		size_t bytesToRead =
-				(dataSize > INPUT_BUFFER_SIZE) ? INPUT_BUFFER_SIZE : dataSize;
+				(dataSize > (INPUT_BUFFER_SIZE * sampleSize)) ? (INPUT_BUFFER_SIZE * sampleSize) : dataSize;
 //		myprintf("\r\n~ Lendo arquivo do cartao SD ~\r\n\r\n");
 
 		fres = SDCard_Read(&inputFile, inputBuffer, bytesToRead, &bytesRead);
 
-//		myprintf("[INFO] SDCard_Read. fres= %d , bytesToRead= %d, bytesRead= %d", fres, bytesToRead, bytesRead);
 		// Ler amostras de audio do arquivo .wav no cartão SD
-		if ( fres == FR_OK && bytesRead >= INPUT_BUFFER_SIZE) {
+		if ( fres == FR_OK && bytesRead >= (INPUT_BUFFER_SIZE * sampleSize)) {
 			// Converter as amostras de 16 bits para float32_t e normalizar
 			for (int i = 0; i < INPUT_BUFFER_SIZE; i++) {
 				// Copia os dados para segunda metade do inputSignal
@@ -429,6 +426,7 @@ int main(void) {
 			}
 
 //			myprintf("Inference result: %d\r\n", result);
+			// Desaloca memoria usado para escrever no SDCard
 			free(outputString); // libera a memoria alocada na funcao de formatar string
 		}
 
@@ -436,7 +434,7 @@ int main(void) {
 		arm_copy_f32(&inputSignal[INPUT_BUFFER_SIZE], &inputSignal[0],
 				OUTPUT_SIGNAL_SIZE);
 
-		// Desaloca memoria usado para escrever no SDCard
+
 #ifdef USE_MIC_AUDIO
 		bufferReadyFlag = 0;
 #endif
@@ -724,10 +722,15 @@ FRESULT readWAVHeader(FIL *file, WAVHeader *header) {
 	return FR_OK;
 }
 
-FRESULT readWAVData(FIL *file, void *buffer, UINT numBytesToRead,
-		UINT *numBytesRead) {
+FRESULT readWAVData(FIL *file, void *buffer, size_t numSamplesToRead,
+		size_t *numBytesRead) {
+    // TODO: Consertar funcao para receber o cabecalho do arquivo .wav e calcular
+	//       a quantidade de bytes a serem lidos conforme a quantidade de samples
+    //	     que serao lidas
 	// Ler dados do arquivo WAV
-	return f_read(file, buffer, numBytesToRead, numBytesRead);
+	size_t bytesToRead;
+
+	return SDCard_Read(&inputFile, inputBuffer, bytesToRead, numBytesRead);
 }
 
 FRESULT readAllWavFile(FIL *file, WAVHeader *header) {
