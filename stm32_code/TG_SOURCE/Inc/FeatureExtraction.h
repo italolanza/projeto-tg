@@ -20,9 +20,9 @@ typedef struct {
 	//float32_t MeanVal; 	/* Removed in the article */
 	//float32_t MedianVal; 	/* Removed in the article */
 	float32_t VarianceVal;
-	float32_t SigShapeFactor;
-	float32_t SigKurtosisVal;
 	float32_t SigSkewnessVal;
+	float32_t SigKurtosisVal;
+	float32_t SigShapeFactor;
 	float32_t SigImpulseFactor;
 	float32_t SigCrestFactor;
 	float32_t SigMarginFactor;

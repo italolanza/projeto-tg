@@ -40,6 +40,7 @@ float32_t calculateSkewness(float32_t *signal, uint32_t length, float32_t mean,
 
 void extractTimeDomainFeatures(TDFeatures *tdFeatures, float32_t *buffer,
 		uint16_t bufferSize) {
+
 	float32_t AbsSig[bufferSize];
 	float32_t MaxValue, MinValue, MeanVal, MeanAbs, StdDevValue;
 	uint32_t MaxValueIndex, MinValueIndex;

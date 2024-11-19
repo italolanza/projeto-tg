@@ -72,8 +72,8 @@ typedef struct {
  * off.wav
  */
 
-#define AUDIO_FILE_NAME "off.wav"
-#define CSV_FILE_NAME "off.csv"
+#define AUDIO_FILE_NAME "health.wav"
+#define CSV_FILE_NAME "health.csv"
 #define CSV_HEADER "RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3"
 #define INPUT_BUFFER_SIZE 2048
 #define HALF_INPUT_BUFFER_SIZE (INPUT_BUFFER_SIZE / 2)
@@ -629,11 +629,11 @@ void myprintf(const char *fmt, ...) {
 
 void printFeatures(TDFeatures *tdFeat, FDFeatures *fdFeat) {
 //	RMS,~~Mean~~,~~Median~~,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3,~~FalutID~~
-	myprintf("%G,%G,%G,%G,%G,%G,%G,%G,%G,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
+//	RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3
+	myprintf("%G,%G,%G,%G,%G,%G,%G,%G,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
 			tdFeat->RMS,
 			tdFeat->VarianceVal,
 			tdFeat->SigSkewnessVal,
-			tdFeat->SigKurtosisVal,
 			tdFeat->SigKurtosisVal,
 			tdFeat->SigCrestFactor,
 			tdFeat->SigShapeFactor,
@@ -649,13 +649,13 @@ void printFeatures(TDFeatures *tdFeat, FDFeatures *fdFeat) {
 }
 
 void formatFeaturestoString(char **bufferPtr, TDFeatures *tdFeat, FDFeatures *fdFeat) {
+	//	RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3
 	createFormatedString(
 			bufferPtr,
-			"%G,%G,%G,%G,%G,%G,%G,%G,%G,%ld,%ld,%ld,%ld,%ld,%ld",
+			"%G,%G,%G,%G,%G,%G,%G,%G,%ld,%ld,%ld,%ld,%ld,%ld",
 			tdFeat->RMS,
 			tdFeat->VarianceVal,
 			tdFeat->SigSkewnessVal,
-			tdFeat->SigKurtosisVal,
 			tdFeat->SigKurtosisVal,
 			tdFeat->SigCrestFactor,
 			tdFeat->SigShapeFactor,
