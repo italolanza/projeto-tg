@@ -72,8 +72,8 @@ typedef struct {
  * off.wav
  */
 
-#define AUDIO_FILE_NAME "health.wav"
-#define CSV_FILE_NAME "health.csv"
+#define AUDIO_FILE_NAME "off.wav"
+#define CSV_FILE_NAME "off.csv"
 #define CSV_HEADER "RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3"
 #define INPUT_BUFFER_SIZE 2048
 #define HALF_INPUT_BUFFER_SIZE (INPUT_BUFFER_SIZE / 2)
@@ -386,7 +386,7 @@ int main(void) {
 		//  Overlapping de 75% antes do janelamento
 //			arm_copy_f32(&inputBuffer[n], inputSignal, OUTPUT_SIGNAL_SIZE);
 		// Aplica a janela de hanning no buffer de entrada da fft
-		arm_mult_f32(inputSignal, hanningWindow, inputSignal,
+		arm_mult_f32(&inputSignal[INPUT_BUFFER_SIZE], hanningWindow, &inputSignal[INPUT_BUFFER_SIZE],
 				OUTPUT_SIGNAL_SIZE);
 		float32_t data[INPUT_BUFFER_SIZE];
 		// Processamento dos dados lidos (no buffer) necessário
@@ -401,14 +401,13 @@ int main(void) {
 			/* Extracao das Features no Dominio do Tempo --------------------------------*/
 
 //			uint32_t startTick = SysTick->VAL;
-			extractTimeDomainFeatures(&tdFeatures, &data,
-					INPUT_BUFFER_SIZE);
+			extractTimeDomainFeatures(&tdFeatures, &data[0], INPUT_BUFFER_SIZE);
 //			uint32_t endTick = SysTick->VAL;
 
 			/* Extracao das Features no Dominio da Frequencia ---------------------------*/
 
 			// Calcula fft usando a biblioteca da ARM
-			arm_rfft_fast_f32(&fftHandler, &data, outputSignal, 0); // o ultimo argumento significa que nao queremos calcular a fft inversa
+			arm_rfft_fast_f32(&fftHandler, &data[0], &outputSignal[0], 0); // o ultimo argumento significa que nao queremos calcular a fft inversa
 
 //			uint32_t startTick = SysTick->VAL;
 			extractFrequencyDomainFeatures(&fdFeatures, outputSignal,
