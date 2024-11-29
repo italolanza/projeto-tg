@@ -39,6 +39,8 @@ typedef struct {
 } FDFeatures;
 
 /* Functions prototypes ---------------------------------------------*/
+void calculateVectorSquareRoot(float32_t *inputArray, float32_t *outputArray,
+		uint32_t length);
 float32_t calculateKurtosis(float32_t *signal, uint32_t length, float32_t mean,
 		float32_t stdDev);
 float32_t calculateSkewness(float32_t *signal, uint32_t length, float32_t mean,

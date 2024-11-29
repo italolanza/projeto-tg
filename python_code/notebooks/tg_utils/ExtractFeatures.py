@@ -16,19 +16,20 @@ def ExtractFeatures(DataBuff, BufferLen, Fs):
     fAxis_F1 = fAxis_F1*(Fs/BufferLen) # creates freq axis
     
     # Cálculo dos parâmetros
-    SigRMS = np.sqrt(np.mean(DataBuff**2))
+    SigRMS = np.sqrt(np.mean(np.square(DataBuff)))
     SigMean = np.mean(DataBuff)
     Abs = np.abs(DataBuff)
     MeanAbs = np.mean(Abs)
     Max = np.max(DataBuff)
+    Min = np.min(DataBuff)
     SigMedian = np.median(DataBuff)
-    SigVariance = np.var(DataBuff)
+    SigVariance = np.var(DataBuff, ddof=1)
     SigSkewness = skew(DataBuff)
-    SigKurtosis = kurtosis(DataBuff)
+    SigKurtosis = kurtosis(DataBuff, fisher=False)
     SigCrestFactor = Max / SigRMS
     SigShapeFactor = SigRMS / MeanAbs
     SigImpulseFactor = Max / MeanAbs
-    SigMarginFactor = Max / (MeanAbs**2)
+    SigMarginFactor = (Max - Min) / np.square(np.mean(np.sqrt(Abs)))
 
     #print("SigRMS:", SigRMS)
     #print("SigMean:", SigMean)
@@ -77,20 +78,21 @@ def ExtractFeatures(DataBuff, BufferLen, Fs):
 def ExtractTimeDomainFeatures(DataBuff, BufferLen, Fs):
     
     # Cálculo dos parâmetros/features
-    SigRMS = np.sqrt(np.mean(DataBuff**2))
+    SigRMS = np.sqrt(np.mean(np.square(DataBuff)))
     SigMean = np.mean(DataBuff)
     Abs = np.abs(DataBuff)
     MeanAbs = np.mean(Abs)
     Max = np.max(DataBuff)
+    Min = np.min(DataBuff)
     SigMedian = np.median(DataBuff)
-    SigVariance = np.var(DataBuff)
+    SigVariance = np.var(DataBuff, ddof=1)
     SigSkewness = skew(DataBuff)
-    SigKurtosis = kurtosis(DataBuff)
+    SigKurtosis = kurtosis(DataBuff, fisher=False)
     SigCrestFactor = Max / SigRMS
     SigShapeFactor = SigRMS / MeanAbs
     SigImpulseFactor = Max / MeanAbs
-    SigMarginFactor = Max / (MeanAbs**2)
-    
+    SigMarginFactor = (Max - Min) / np.square(np.mean(np.sqrt(Abs)))
+
     # return (SigRMS, SigMean, SigMedian, SigVariance, SigSkewness, SigKurtosis, 
             # SigCrestFactor, SigShapeFactor, SigImpulseFactor, SigMarginFactor)
     return (SigRMS, SigVariance, SigSkewness, SigKurtosis, SigCrestFactor, SigShapeFactor, SigImpulseFactor, SigMarginFactor)

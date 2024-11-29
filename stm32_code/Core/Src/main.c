@@ -65,11 +65,11 @@ typedef struct {
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 /*
+ * off.wav
  * health.wav
  * f1.wav
  * f2.wav
  * f3.wav
- * off.wav
  */
 
 #define AUDIO_FILE_NAME "off.wav"
@@ -357,6 +357,7 @@ int main(void) {
 			//f_lseek(&inputFile, 44); 	// Reinicia o arquivo (ciclo)
 
 			// Fecha os arquivos WAV, CSV e desmontar o sistema de arquivos
+			myprintf("\r\n");
 			SDCard_CloseFile(&inputFile);
 			myprintf("[INFO] Fechando arquivo \"%s\". Codigo do erro: (%i)\r\n", AUDIO_FILE_NAME, fres);
 			SDCard_CloseFile(&outputFile);
@@ -417,7 +418,8 @@ int main(void) {
 			/* Faz Inferencia -----------------------------------------------------------*/
 //			int32_t result = run_inference(decision_tree_test);
 			// TODO: Imprimir no console as features
-			printFeatures(&tdFeatures, &fdFeatures);
+//			printFeatures(&tdFeatures, &fdFeatures);
+			myprintf(".");
 			formatFeaturestoString(&outputString, &tdFeatures, &fdFeatures);
 			fres =  SDCard_WriteLine(&outputFile, outputString);
 			if (fres != FR_OK) {
