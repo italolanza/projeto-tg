@@ -1,7 +1,9 @@
 import numpy as np
+import math
 from scipy.signal import sosfreqz, sosfilt, iirdesign, find_peaks
 from scipy.signal.windows import hann
 from scipy.stats import skew, kurtosis
+from scipy.fft import rfft
 from .doFilterHP import HighpassFilter
 
 filtro_hp = HighpassFilter()
@@ -44,32 +46,55 @@ def ExtractFeatures(DataBuff, BufferLen, Fs):
     #print("SigImpulseFactor:", SigImpulseFactor)
     #print("SigMarginFactor:", SigMarginFactor)
 
-    DataFFT = np.abs(np.fft.fft(DataBuff))
-    DataFFT = DataFFT[:int(BufferLen/2)] # pega apenas parte positiva da fft
-    peaks, props = find_peaks(DataFFT, height=1, distance=10, prominence=1)
-    NumPks = len(peaks)
+    # DataFFT = np.abs(np.fft.fft(DataBuff))
+    # DataFFT = DataFFT[:int(BufferLen/2)] # pega apenas parte positiva da fft
+    # peaks, props = find_peaks(DataFFT, height=1, distance=10, prominence=1)
+    # NumPks = len(peaks)
     
-    #print(f'Num Peaks: {len(peaks)}')
+    # #print(f'Num Peaks: {len(peaks)}')
 
-    indx_pks = np.argsort(props["peak_heights"]) # organiza o indice dos picos de maneira crescente 
-                                                 # ultimo indice == indice do maior pico
+    # indx_pks = np.argsort(props["peak_heights"]) # organiza o indice dos picos de maneira crescente 
+    #                                              # ultimo indice == indice do maior pico
 
-    if NumPks == 0:
-        pks1, pks2, pks3 = 0, 0, 0
-        locs1, locs2, locs3 = 0, 0, 0
-    elif NumPks == 1:
-        pks1, locs1 = props["peak_heights"][indx_pks[-1]], fAxis_F1[peaks[indx_pks[-1]]]
-        pks2, pks3 = 0, 0
-        locs2, locs3 = 0, 0
-    elif NumPks == 2:
-        pks1, locs1 = props["peak_heights"][indx_pks[-1]], fAxis_F1[peaks[indx_pks[-1]]]
-        pks2, locs2 = props["peak_heights"][indx_pks[-2]], fAxis_F1[peaks[indx_pks[-2]]]
-        pks3, locs3 = 0, 0
-    elif NumPks >= 3:
-        pks1, locs1 = props["peak_heights"][indx_pks[-1]], fAxis_F1[peaks[indx_pks[-1]]]
-        pks2, locs2 = props["peak_heights"][indx_pks[-2]], fAxis_F1[peaks[indx_pks[-2]]]
-        pks3, locs3 = props["peak_heights"][indx_pks[-3]], fAxis_F1[peaks[indx_pks[-3]]]
+    # if NumPks == 0:
+    #     pks1, pks2, pks3 = 0, 0, 0
+    #     locs1, locs2, locs3 = 0, 0, 0
+    # elif NumPks == 1:
+    #     pks1, locs1 = props["peak_heights"][indx_pks[-1]], fAxis_F1[peaks[indx_pks[-1]]]
+    #     pks2, pks3 = 0, 0
+    #     locs2, locs3 = 0, 0
+    # elif NumPks == 2:
+    #     pks1, locs1 = props["peak_heights"][indx_pks[-1]], fAxis_F1[peaks[indx_pks[-1]]]
+    #     pks2, locs2 = props["peak_heights"][indx_pks[-2]], fAxis_F1[peaks[indx_pks[-2]]]
+    #     pks3, locs3 = 0, 0
+    # elif NumPks >= 3:
+    #     pks1, locs1 = props["peak_heights"][indx_pks[-1]], fAxis_F1[peaks[indx_pks[-1]]]
+    #     pks2, locs2 = props["peak_heights"][indx_pks[-2]], fAxis_F1[peaks[indx_pks[-2]]]
+    #     pks3, locs3 = props["peak_heights"][indx_pks[-3]], fAxis_F1[peaks[indx_pks[-3]]]
     
+    DataFFT = np.abs(rfft(DataBuff))
+
+    pks1, pks2, pks3 = 0, 0, 0
+    locs1, locs2, locs3 = 0, 0, 0
+
+    for idx, value in np.ndenumerate(DataFFT):
+        if value > pks1:
+            pks3 = pks2
+            pks2 = pks1
+            pks1 = int(value)
+            locs3 = locs2
+            locs2 = locs1
+            locs1 = int(idx[0] * (Fs / (BufferLen)))
+        elif value > pks2:
+            pks3 = pks2
+            pks2 = int(value)
+            locs3 = locs2
+            locs2 = int(idx[0] * (Fs / (BufferLen)))
+        elif value > pks3:
+            pks3 = int(value)
+            locs3 = int(idx[0] * (Fs / (BufferLen)))
+
+
     return (SigRMS, SigMean, SigMedian, SigVariance, SigSkewness, SigKurtosis, 
             SigCrestFactor, SigShapeFactor, SigImpulseFactor, SigMarginFactor, 
             pks1, pks2, pks3, locs1, locs2, locs3)
@@ -100,34 +125,56 @@ def ExtractTimeDomainFeatures(DataBuff, BufferLen, Fs):
 
 def ExtractFrequencyDomainFeatures(DataBuff, BufferLen, Fs):
     
-    fAxis_F1 = np.arange(start=0,stop=((BufferLen-1)/2), step=1)
-    fAxis_F1 = fAxis_F1*(Fs/BufferLen) # creates freq axis
+    DataFFT = np.abs(rfft(DataBuff))
 
-    DataFFT = np.abs(np.fft.fft(DataBuff))
-    DataFFT = DataFFT[:int(BufferLen/2)] # pega apenas parte positiva da fft
-    peaks, props = find_peaks(DataFFT, height=1, distance=10, prominence=1)
-    NumPks = len(peaks)
+    pks1, pks2, pks3 = 0, 0, 0
+    locs1, locs2, locs3 = 0, 0, 0
+
+    for idx, value in np.ndenumerate(DataFFT):
+        if value > pks1:
+            pks3 = pks2
+            pks2 = pks1
+            pks1 = int(value)
+            locs3 = locs2
+            locs2 = locs1
+            locs1 = int(idx[0] * (Fs / (BufferLen)))
+        elif value > pks2:
+            pks3 = pks2
+            pks2 = int(value)
+            locs3 = locs2
+            locs2 = int(idx[0] * (Fs / (BufferLen)))
+        elif value > pks3:
+            pks3 = int(value)
+            locs3 = int(idx[0] * (Fs / (BufferLen)))
+
+
+    # fAxis_F1 = np.arange(start=0,stop=((BufferLen-1)/2), step=1)
+    # fAxis_F1 = fAxis_F1*(Fs/BufferLen) # creates freq axis
+
+    # DataFFT = DataFFT[:int(BufferLen/2)] # pega apenas parte positiva da fft
+    # peaks, props = find_peaks(DataFFT, height=1, distance=10, prominence=1)
+    # NumPks = len(peaks)
     
     #print(f'Num Peaks: {len(peaks)}')
 
-    indx_pks = np.argsort(props["peak_heights"]) # organiza o indice dos picos de maneira crescente 
-                                                 # ultimo indice == indice do maior pico
+    # indx_pks = np.argsort(props["peak_heights"]) # organiza o indice dos picos de maneira crescente 
+    #                                              # ultimo indice == indice do maior pico
 
-    if NumPks == 0:
-        pks1, pks2, pks3 = 0, 0, 0
-        locs1, locs2, locs3 = 0, 0, 0
-    elif NumPks == 1:
-        pks1, locs1 = props["peak_heights"][indx_pks[-1]], fAxis_F1[peaks[indx_pks[-1]]]
-        pks2, pks3 = 0, 0
-        locs2, locs3 = 0, 0
-    elif NumPks == 2:
-        pks1, locs1 = props["peak_heights"][indx_pks[-1]], fAxis_F1[peaks[indx_pks[-1]]]
-        pks2, locs2 = props["peak_heights"][indx_pks[-2]], fAxis_F1[peaks[indx_pks[-2]]]
-        pks3, locs3 = 0, 0
-    elif NumPks >= 3:
-        pks1, locs1 = props["peak_heights"][indx_pks[-1]], fAxis_F1[peaks[indx_pks[-1]]]
-        pks2, locs2 = props["peak_heights"][indx_pks[-2]], fAxis_F1[peaks[indx_pks[-2]]]
-        pks3, locs3 = props["peak_heights"][indx_pks[-3]], fAxis_F1[peaks[indx_pks[-3]]]
+    # if NumPks == 0:
+    #     pks1, pks2, pks3 = 0, 0, 0
+    #     locs1, locs2, locs3 = 0, 0, 0
+    # elif NumPks == 1:
+    #     pks1, locs1 = props["peak_heights"][indx_pks[-1]], fAxis_F1[peaks[indx_pks[-1]]]
+    #     pks2, pks3 = 0, 0
+    #     locs2, locs3 = 0, 0
+    # elif NumPks == 2:
+    #     pks1, locs1 = props["peak_heights"][indx_pks[-1]], fAxis_F1[peaks[indx_pks[-1]]]
+    #     pks2, locs2 = props["peak_heights"][indx_pks[-2]], fAxis_F1[peaks[indx_pks[-2]]]
+    #     pks3, locs3 = 0, 0
+    # elif NumPks >= 3:
+    #     pks1, locs1 = props["peak_heights"][indx_pks[-1]], fAxis_F1[peaks[indx_pks[-1]]]
+    #     pks2, locs2 = props["peak_heights"][indx_pks[-2]], fAxis_F1[peaks[indx_pks[-2]]]
+    #     pks3, locs3 = props["peak_heights"][indx_pks[-3]], fAxis_F1[peaks[indx_pks[-3]]]
     
     return (pks1, pks2, pks3, locs1, locs2, locs3)
 
