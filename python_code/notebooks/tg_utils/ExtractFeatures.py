@@ -81,18 +81,18 @@ def ExtractFeatures(DataBuff, BufferLen, Fs):
         if value > pks1:
             pks3 = pks2
             pks2 = pks1
-            pks1 = int(value)
+            pks1 = value
             locs3 = locs2
             locs2 = locs1
-            locs1 = int(idx[0] * (Fs / (BufferLen)))
+            locs1 = idx[0] * (Fs / (BufferLen))
         elif value > pks2:
             pks3 = pks2
-            pks2 = int(value)
+            pks2 = value
             locs3 = locs2
-            locs2 = int(idx[0] * (Fs / (BufferLen)))
+            locs2 = idx[0] * (Fs / (BufferLen))
         elif value > pks3:
-            pks3 = int(value)
-            locs3 = int(idx[0] * (Fs / (BufferLen)))
+            pks3 = value
+            locs3 = idx[0] * (Fs / (BufferLen))
 
 
     return (SigRMS, SigMean, SigMedian, SigVariance, SigSkewness, SigKurtosis, 
@@ -134,18 +134,18 @@ def ExtractFrequencyDomainFeatures(DataBuff, BufferLen, Fs):
         if value > pks1:
             pks3 = pks2
             pks2 = pks1
-            pks1 = int(value)
+            pks1 = value
             locs3 = locs2
             locs2 = locs1
-            locs1 = int(idx[0] * (Fs / (BufferLen)))
+            locs1 = idx[0] * (Fs / (BufferLen))
         elif value > pks2:
             pks3 = pks2
-            pks2 = int(value)
+            pks2 = value
             locs3 = locs2
-            locs2 = int(idx[0] * (Fs / (BufferLen)))
+            locs2 = idx[0] * (Fs / (BufferLen))
         elif value > pks3:
-            pks3 = int(value)
-            locs3 = int(idx[0] * (Fs / (BufferLen)))
+            pks3 = value
+            locs3 = idx[0] * (Fs / (BufferLen))
 
 
     # fAxis_F1 = np.arange(start=0,stop=((BufferLen-1)/2), step=1)

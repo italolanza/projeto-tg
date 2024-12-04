@@ -30,12 +30,12 @@ typedef struct {
 
 //Frequency Domain Features
 typedef struct {
-	int32_t PeakAmp1; // largest amplitude of the extracted frequencies in the signal
-	int32_t PeakAmp2; // second largest amplitude of the extracted frequencies in the signal
-	int32_t PeakAmp3; // third largest amplitude of the extracted frequencies in the signal
-	int32_t PeakLocs1; 	// frequency value of the largest amplitude
-	int32_t PeakLocs2; 	// frequency value of the second largest amplitude
-	int32_t PeakLocs3; 	// frequency value of the third largest amplitude
+	float32_t PeakAmp1; // largest amplitude of the extracted frequencies in the signal
+	float32_t PeakAmp2; // second largest amplitude of the extracted frequencies in the signal
+	float32_t PeakAmp3; // third largest amplitude of the extracted frequencies in the signal
+	float32_t PeakLocs1; 	// frequency value of the largest amplitude
+	float32_t PeakLocs2; 	// frequency value of the second largest amplitude
+	float32_t PeakLocs3; 	// frequency value of the third largest amplitude
 } FDFeatures;
 
 /* Functions prototypes ---------------------------------------------*/

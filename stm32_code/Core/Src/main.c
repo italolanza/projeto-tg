@@ -631,7 +631,7 @@ void myprintf(const char *fmt, ...) {
 void printFeatures(TDFeatures *tdFeat, FDFeatures *fdFeat) {
 //	RMS,~~Mean~~,~~Median~~,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3,~~FalutID~~
 //	RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3
-	myprintf("%G,%G,%G,%G,%G,%G,%G,%G,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
+	myprintf("%G,%G,%G,%G,%G,%G,%G,%G,%G,%G,%G,%G,%G,%G\r\n",
 			tdFeat->RMS,
 			tdFeat->VarianceVal,
 			tdFeat->SigSkewnessVal,
@@ -653,7 +653,7 @@ void formatFeaturestoString(char **bufferPtr, TDFeatures *tdFeat, FDFeatures *fd
 	//	RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3
 	createFormatedString(
 			bufferPtr,
-			"%G,%G,%G,%G,%G,%G,%G,%G,%ld,%ld,%ld,%ld,%ld,%ld",
+			"%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f",
 			tdFeat->RMS,
 			tdFeat->VarianceVal,
 			tdFeat->SigSkewnessVal,

@@ -167,17 +167,17 @@ void extractFrequencyDomainFeatures(FDFeatures *fdFeatures, float32_t *buffer,
 			fdFeatures->PeakAmp1 = curVal;
 			fdFeatures->PeakLocs3 = fdFeatures->PeakLocs2;
 			fdFeatures->PeakLocs2 = fdFeatures->PeakLocs1;
-			fdFeatures->PeakLocs1 = (uint32_t) ((freqIndex / 2)
+			fdFeatures->PeakLocs1 = (float32_t) ((freqIndex / 2)
 					* (sampleRate / ((float32_t) bufferSize)));
 		} else if (curVal > fdFeatures->PeakAmp2) {
 			fdFeatures->PeakAmp3 = fdFeatures->PeakAmp2;
 			fdFeatures->PeakAmp2 = curVal;
 			fdFeatures->PeakLocs3 = fdFeatures->PeakLocs2;
-			fdFeatures->PeakLocs2 = (uint32_t) ((freqIndex / 2)
+			fdFeatures->PeakLocs2 = (float32_t) ((freqIndex / 2)
 					* (sampleRate / ((float32_t) bufferSize)));
 		} else if (curVal > fdFeatures->PeakAmp3) {
 			fdFeatures->PeakAmp3 = curVal;
-			fdFeatures->PeakLocs3 = (uint32_t) ((freqIndex / 2)
+			fdFeatures->PeakLocs3 = (float32_t) ((freqIndex / 2)
 					* (sampleRate / ((float32_t) bufferSize)));
 		}
 
