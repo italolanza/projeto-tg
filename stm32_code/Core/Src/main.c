@@ -35,6 +35,7 @@
 #include <math.h>
 #include "FeatureExtraction.h"
 #include "SDCard.h"
+#include "StringFormatter.h"
 #include "decision_tree_model.h"
 //#include "extra_trees_model.h"
 //#include "gaussian_naive_bayes_model.h"
@@ -74,7 +75,8 @@ typedef struct {
 
 #define AUDIO_FILE_NAME "off.wav"
 #define CSV_FILE_NAME "off.csv"
-#define CSV_HEADER "RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3"
+//#define CSV_HEADER "RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3"
+#define CSV_HEADER "RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3,FAULT_ID"
 #define INPUT_BUFFER_SIZE 2048
 #define HALF_INPUT_BUFFER_SIZE (INPUT_BUFFER_SIZE / 2)
 #define INPUT_SIGNAL_SIZE (INPUT_BUFFER_SIZE * 2)
@@ -165,10 +167,6 @@ void createHanningWindow(float32_t *window, int size);
 // Funcoes de suporte
 void myprintf(const char *fmt, ...);
 void printFeatures(TDFeatures *tdFeat, FDFeatures *fdFeat);
-void formatFeaturestoString(char **bufferPtr, TDFeatures *tdFeat, FDFeatures *fdFeat);
-int createFormatedString(char **bufferPtr, const char *fmt, ...);
-
-
 
 // Funcoes relacionado a inferencia
 int32_t decision_tree_test(void);
@@ -396,7 +394,6 @@ int main(void) {
 				n <= INPUT_BUFFER_SIZE;
 				n = n + ADVANCE_SIZE ) {
 
-			//TODO: Implementar buffer intermediario para uso na fft\
 			// Copia dados do input buffer para array que vai ser utilizado para processamento
 			arm_copy_f32(&inputSignal[n], &data[0], OUTPUT_SIGNAL_SIZE);
 			/* Extracao das Features no Dominio do Tempo --------------------------------*/
@@ -415,12 +412,20 @@ int main(void) {
 					OUTPUT_SIGNAL_SIZE, sampleRate);
 //			uint32_t endTick = SysTick->VAL;
 
-			/* Faz Inferencia -----------------------------------------------------------*/
-//			int32_t result = run_inference(decision_tree_test);
-			// TODO: Imprimir no console as features
+			// [DEBUG]
 //			printFeatures(&tdFeatures, &fdFeatures);
-			myprintf(".");
-			formatFeaturestoString(&outputString, &tdFeatures, &fdFeatures);
+
+
+			/* Faz Inferencia -----------------------------------------------------------*/
+
+			int32_t result = run_inference(decision_tree_test);
+//			myprintf("Resultado Inferencia: %ld", result);
+
+
+			/* Escreve no Cartao SD -----------------------------------------------------*/
+//
+//			formatFeaturestoString(&outputString, &tdFeatures, &fdFeatures);
+			formatFeaturesAndResultToString(&outputString, &tdFeatures, &fdFeatures, result);
 			fres =  SDCard_WriteLine(&outputFile, outputString);
 			if (fres != FR_OK) {
 				myprintf("[ERRO] Erro ao escrever linha no arquivo '%s'. Codigo do erro: (%i)\r\n", CSV_FILE_NAME, fres);
@@ -429,6 +434,7 @@ int main(void) {
 //			myprintf("Inference result: %d\r\n", result);
 			// Desaloca memoria usado para escrever no SDCard
 			free(outputString); // libera a memoria alocada na funcao de formatar string
+			myprintf("."); // minha barra de progresso ?!
 		}
 
 		// Atualiza a primeira metade do inputSignal para proxima janela de dados
@@ -647,56 +653,6 @@ void printFeatures(TDFeatures *tdFeat, FDFeatures *fdFeat) {
 			fdFeat->PeakLocs2,
 			fdFeat->PeakLocs3
 			);
-}
-
-void formatFeaturestoString(char **bufferPtr, TDFeatures *tdFeat, FDFeatures *fdFeat) {
-	//	RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3
-	createFormatedString(
-			bufferPtr,
-			"%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f",
-			tdFeat->RMS,
-			tdFeat->VarianceVal,
-			tdFeat->SigSkewnessVal,
-			tdFeat->SigKurtosisVal,
-			tdFeat->SigCrestFactor,
-			tdFeat->SigShapeFactor,
-			tdFeat->SigImpulseFactor,
-			tdFeat->SigMarginFactor,
-			fdFeat->PeakAmp1,
-			fdFeat->PeakAmp2,
-			fdFeat->PeakAmp3,
-			fdFeat->PeakLocs1,
-			fdFeat->PeakLocs2,
-			fdFeat->PeakLocs3
-			);
-}
-
-int createFormatedString(char **bufferPtr, const char *fmt, ...) {
-	va_list args;
-	va_start(args, fmt);
-
-	// Calcula o tamanho necessario
-	int len = vsnprintf(NULL, 0, fmt, args);
-	va_end(args);
-
-	if (len < 0) {
-		return -1;  // Erro ao calcular o tamanho
-	}
-
-	// Aloca memoria suficiente para a string
-	*bufferPtr = (char *)malloc(len + 1);  // +1 para o terminador nulo
-
-	if (*bufferPtr == NULL) {
-		return -1;  // Falha na alocacao de memoria
-	}
-
-	// Escreve a string formatada no buffer alocado
-	va_start(args, fmt);
-	int result = vsnprintf(*bufferPtr, len + 1, fmt, args);  // Escreve a string
-	va_end(args);
-
-	// Retorna o numero de caracteres escritos (sem o terminador nulo)
-	return result;
 }
 
 FRESULT readWAVHeader(FIL *file, WAVHeader *header) {
