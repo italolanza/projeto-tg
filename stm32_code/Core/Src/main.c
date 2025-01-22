@@ -36,10 +36,7 @@
 #include "FeatureExtraction.h"
 #include "SDCard.h"
 #include "StringFormatter.h"
-#include "decision_tree_model.h"
-//#include "extra_trees_model.h"
-//#include "gaussian_naive_bayes_model.h"
-//#include "random_forest_model.h"
+#include "ModelSupportFunctions.h"
 
 /* USER CODE END Includes */
 
@@ -138,10 +135,10 @@ uint32_t dataSize;						// Variavel para armazenar a quantidade de dados lida do
 #endif
 
 // Time Domain Features
-static TDFeatures tdFeatures = { 0 }; // Estrutura das features relacionadas ao dominio do Tempo
+static TDFeatures tdFeatures = {0}; // Estrutura das features relacionadas ao dominio do Tempo
 
 // Frequency Domain Features
-static FDFeatures fdFeatures = { 0 }; // Estrutura das features relacionadas ao dominio da Frequencia
+static FDFeatures fdFeatures = {0}; // Estrutura das features relacionadas ao dominio da Frequencia
 
 /* USER CODE END PV */
 
@@ -167,13 +164,6 @@ void createHanningWindow(float32_t *window, int size);
 // Funcoes de suporte
 void myprintf(const char *fmt, ...);
 void printFeatures(TDFeatures *tdFeat, FDFeatures *fdFeat);
-
-// Funcoes relacionado a inferencia
-int32_t decision_tree_test(void);
-int32_t extra_trees_test(void);
-int32_t gaussian_naive_bayes_test(void);
-int32_t random_forest_test(void);
-int32_t run_inference(int32_t (*func)(void));
 
 #ifdef USE_MIC_AUDIO
 	void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc);
@@ -418,7 +408,7 @@ int main(void) {
 
 			/* Faz Inferencia -----------------------------------------------------------*/
 
-			int32_t result = run_inference(decision_tree_test);
+			int32_t result = run_inference(test_model(&tdFeatures, &fdFeatures));
 //			myprintf("Resultado Inferencia: %ld", result);
 
 
@@ -743,118 +733,6 @@ void printWAVHeader(const WAVHeader *header) {
 //	HAL_GPIO_TogglePin(D7_GPIO_Port, D7_Pin);
 ////	HAL_UART_Transmit(&huart2, (uint8_t*)"FULL\r\n", 6, HAL_MAX_DELAY);
 //}
-
-int32_t decision_tree_test(void) {
-	const int n_features = 14;
-//	const int n_testcases = testset_samples;
-	float32_t features[] = { tdFeatures.RMS, tdFeatures.VarianceVal,
-			tdFeatures.SigShapeFactor, tdFeatures.SigKurtosisVal,
-			tdFeatures.SigSkewnessVal, tdFeatures.SigImpulseFactor,
-			tdFeatures.SigCrestFactor, tdFeatures.SigMarginFactor,
-			fdFeatures.PeakAmp1, fdFeatures.PeakAmp2, fdFeatures.PeakAmp3,
-			fdFeatures.PeakLocs1, fdFeatures.PeakLocs2, fdFeatures.PeakLocs3 };
-//	int errors = 0;
-//	char msg[80];
-	const int32_t out = model_predict(features, n_features);
-
-//	if (out != expect_result) {
-//		printf("test-fail sample=%d expect=%d got=%d \r\n", i, expect_result, out);
-//			errors += 1;
-//	}
-
-//	sprintf(msg, "test decision_tree result=%d \r\n", out);
-//	HAL_UART_Transmit(&huart2, (uint8_t*) msg, strlen(msg), HAL_MAX_DELAY);
-//	HAL_UART_Transmit(&huart2, (uint8_t*) "\r\n", strlen("\r\n"),
-//	HAL_MAX_DELAY);
-
-	return out;
-}
-
-int32_t extra_trees_test(void) {
-	const int n_features = 14;
-//	const int n_testcases = testset_samples;
-	float32_t features[] = { tdFeatures.RMS, tdFeatures.VarianceVal,
-			tdFeatures.SigShapeFactor, tdFeatures.SigKurtosisVal,
-			tdFeatures.SigSkewnessVal, tdFeatures.SigImpulseFactor,
-			tdFeatures.SigCrestFactor, tdFeatures.SigMarginFactor,
-			fdFeatures.PeakAmp1, fdFeatures.PeakAmp2, fdFeatures.PeakAmp3,
-			fdFeatures.PeakLocs1, fdFeatures.PeakLocs2, fdFeatures.PeakLocs3 };
-
-//	int errors = 0;
-	char msg[80];
-	const int32_t out = model_predict(features, n_features);
-
-//	if (out != expect_result) {
-//		printf("test-fail sample=%d expect=%d got=%d \r\n", i, expect_result, out);
-//			errors += 1;
-//	}
-
-	sprintf(msg, "test extra_trees result=%ld \r\n", out);
-	HAL_UART_Transmit(&huart2, (uint8_t*) msg, strlen(msg), HAL_MAX_DELAY);
-	HAL_UART_Transmit(&huart2, (uint8_t*) "\r\n", strlen("\r\n"),
-	HAL_MAX_DELAY);
-
-	return out;
-}
-
-int32_t gaussian_naive_bayes_test(void) {
-	const int n_features = 14;
-//	const int n_testcases = testset_samples;
-	float32_t features[] = { tdFeatures.RMS, tdFeatures.VarianceVal,
-			tdFeatures.SigShapeFactor, tdFeatures.SigKurtosisVal,
-			tdFeatures.SigSkewnessVal, tdFeatures.SigImpulseFactor,
-			tdFeatures.SigCrestFactor, tdFeatures.SigMarginFactor,
-			fdFeatures.PeakAmp1, fdFeatures.PeakAmp2, fdFeatures.PeakAmp3,
-			fdFeatures.PeakLocs1, fdFeatures.PeakLocs2, fdFeatures.PeakLocs3 };
-
-//	int errors = 0;
-	char msg[80];
-	const int32_t out = model_predict(features, n_features);
-
-//	if (out != expect_result) {
-//		printf("test-fail sample=%d expect=%d got=%d \r\n", i, expect_result, out);
-//			errors += 1;
-//	}
-
-	sprintf(msg, "test gaussian_naive_bayes result=%ld \r\n", out);
-	HAL_UART_Transmit(&huart2, (uint8_t*) msg, strlen(msg), HAL_MAX_DELAY);
-	HAL_UART_Transmit(&huart2, (uint8_t*) "\r\n", strlen("\r\n"),
-	HAL_MAX_DELAY);
-
-	return out;
-}
-
-int32_t random_forest_test(void) {
-	const int n_features = 14;
-//	const int n_testcases = testset_samples;
-	float32_t features[] = { tdFeatures.RMS, tdFeatures.VarianceVal,
-			tdFeatures.SigShapeFactor, tdFeatures.SigKurtosisVal,
-			tdFeatures.SigSkewnessVal, tdFeatures.SigImpulseFactor,
-			tdFeatures.SigCrestFactor, tdFeatures.SigMarginFactor,
-			fdFeatures.PeakAmp1, fdFeatures.PeakAmp2, fdFeatures.PeakAmp3,
-			fdFeatures.PeakLocs1, fdFeatures.PeakLocs2, fdFeatures.PeakLocs3 };
-
-//	int errors = 0;
-	char msg[80];
-	const int32_t out = model_predict(features, n_features);
-
-//	if (out != expect_result) {
-//		printf("test-fail sample=%d expect=%d got=%d \r\n", i, expect_result, out);
-//		errors += 1;
-//	}
-
-	sprintf(msg, "test random_forest result=%ld \r\n", out);
-	HAL_UART_Transmit(&huart2, (uint8_t*) msg, strlen(msg), HAL_MAX_DELAY);
-	HAL_UART_Transmit(&huart2, (uint8_t*) "\r\n", strlen("\r\n"),
-	HAL_MAX_DELAY);
-
-	return out;
-}
-
-int32_t run_inference(int32_t (*func)(void)) {
-
-	return func();
-}
 
 /* USER CODE END 4 */
 

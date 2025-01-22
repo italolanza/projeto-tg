@@ -3,8 +3,8 @@
  *
  *  Created on: May 21, 2024
  *      Author: Italo LANZA
- * Description: Cabecalho file contendo as funcoes necessarias para extracao das
- * 				features utilizadas no projeto.
+ * Description: Cabecalho file contendo as funcoes necessarias para extracao
+ * 				das features utilizadas no projeto.
  */
 
 #ifndef FEATUREEXTRACTION_H_
