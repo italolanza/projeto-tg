@@ -13,14 +13,13 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FeatureExtraction.h"
-//#include "extra_trees_model.h"
-//#include "gaussian_naive_bayes_model.h"
-//#include "random_forest_model.h"
+
 
 /* Typedef -----------------------------------------------------------*/
 /* Functions prototypes ---------------------------------------------*/
-int32_t run_inference(int32_t (*func)(void));
-int32_t test_model(TDFeatures *tdFeatures, FDFeatures *fdFeatures);
+//int32_t run_inference(int32_t (*func)(void));
+int32_t run_inference(TDFeatures *tdFeatures, FDFeatures *fdFeatures);
+//int32_t test_model(TDFeatures *tdFeatures, FDFeatures *fdFeatures);
 //int32_t test_decision_tree(TDFeatures *tdFeatures, FDFeatures *fdFeatures);
 //int32_t test_extra_trees(TDFeatures *tdFeatures, FDFeatures *fdFeatures);
 //int32_t test_gaussian_naive_bayes(TDFeatures *tdFeatures, FDFeatures *fdFeatures);

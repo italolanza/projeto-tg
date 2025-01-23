@@ -241,17 +241,17 @@ int main(void) {
 	}
 
 	// Tenta criar o arquivo com o nome defino pela flag CSV_FILE_NAME
-	fres = SDCard_OpenFile(&outputFile, CSV_FILE_NAME, FA_CREATE_ALWAYS | FA_WRITE);
-		if (fres != FR_OK) {
-			myprintf("[ERRO] Erro ao abrir arquivo '%s'. Codigo do erro: (%i)\r\n",
-					CSV_FILE_NAME, fres);
-
-			SDCard_CloseFile(&inputFile);
-			SDCard_Unmount();
-
-			while (1) {
-			} // loop infinito para travar a execucao do programa
-		}
+//	fres = SDCard_OpenFile(&outputFile, CSV_FILE_NAME, FA_CREATE_ALWAYS | FA_WRITE);
+//		if (fres != FR_OK) {
+//			myprintf("[ERRO] Erro ao abrir arquivo '%s'. Codigo do erro: (%i)\r\n",
+//					CSV_FILE_NAME, fres);
+//
+//			SDCard_CloseFile(&inputFile);
+//			SDCard_Unmount();
+//
+//			while (1) {
+//			} // loop infinito para travar a execucao do programa
+//		}
 
 	// Ler o cabeçalho do arquivo WAV
 	fres = readWAVHeader(&inputFile, &wavHeader);
@@ -262,7 +262,7 @@ int main(void) {
 				fres);
 
 		SDCard_CloseFile(&inputFile);
-		SDCard_CloseFile(&outputFile);
+//		SDCard_CloseFile(&outputFile);
 		SDCard_Unmount();
 
 		while (1) {
@@ -318,17 +318,17 @@ int main(void) {
 
 	myprintf("\r\n~ Processando dados ~\r\n\r\n");
 
-	char *outputString; 	// variavel para armazenar a string de saida
+	//char *outputString; 	// variavel para armazenar a string de saida
 //	int outputStringSize;	// tamanho da string descontando o caracter nulo
 
-	SDCard_WriteLine(&outputFile, CSV_HEADER);
+//	SDCard_WriteLine(&outputFile, CSV_HEADER);
 
 	while (1) {
 #ifdef USE_SD_AUDIO
 
 		size_t bytesToRead =
 				(dataSize > (INPUT_BUFFER_SIZE * sampleSize)) ? (INPUT_BUFFER_SIZE * sampleSize) : dataSize;
-//		myprintf("\r\n~ Lendo arquivo do cartao SD ~\r\n\r\n");
+		myprintf("\r\n~ Lendo arquivo do cartao SD ~\r\n\r\n");
 
 		fres = SDCard_Read(&inputFile, inputBuffer, bytesToRead, &bytesRead);
 
@@ -348,8 +348,8 @@ int main(void) {
 			myprintf("\r\n");
 			SDCard_CloseFile(&inputFile);
 			myprintf("[INFO] Fechando arquivo \"%s\". Codigo do erro: (%i)\r\n", AUDIO_FILE_NAME, fres);
-			SDCard_CloseFile(&outputFile);
-			myprintf("[INFO] Fechando arquivo \"%s\". Codigo do erro: (%i)\r\n", CSV_FILE_NAME, fres);
+//			SDCard_CloseFile(&outputFile);
+//			myprintf("[INFO] Fechando arquivo \"%s\". Codigo do erro: (%i)\r\n", CSV_FILE_NAME, fres);
 			SDCard_Unmount();
 			myprintf("[INFO] Desmontando FatFs. Codigo do erro: (%i)\r\n", fres);
 			myprintf("\r\n~ Fim do processamento ~\r\n\r\n");
@@ -387,13 +387,13 @@ int main(void) {
 			// Copia dados do input buffer para array que vai ser utilizado para processamento
 			arm_copy_f32(&inputSignal[n], &data[0], OUTPUT_SIGNAL_SIZE);
 			/* Extracao das Features no Dominio do Tempo --------------------------------*/
-
+			myprintf("\r\n~ Extracao das Features no Dominio do Tempo ~\r\n\r\n");
 //			uint32_t startTick = SysTick->VAL;
 			extractTimeDomainFeatures(&tdFeatures, &data[0], INPUT_BUFFER_SIZE);
 //			uint32_t endTick = SysTick->VAL;
 
 			/* Extracao das Features no Dominio da Frequencia ---------------------------*/
-
+			myprintf("\r\n~ Extracao das Features no Dominio da Frequencia ~\r\n\r\n");
 			// Calcula fft usando a biblioteca da ARM
 			arm_rfft_fast_f32(&fftHandler, &data[0], &outputSignal[0], 0); // o ultimo argumento significa que nao queremos calcular a fft inversa
 
@@ -407,23 +407,26 @@ int main(void) {
 
 
 			/* Faz Inferencia -----------------------------------------------------------*/
-
-			int32_t result = run_inference(test_model(&tdFeatures, &fdFeatures));
-//			myprintf("Resultado Inferencia: %ld", result);
+			myprintf("\r\n~ Faz Inferencia ~\r\n\r\n");
+			//			uint32_t startTick = SysTick->VAL;
+//			int32_t result = run_inference(test_model(&tdFeatures, &fdFeatures));
+			int32_t result = run_inference(&tdFeatures, &fdFeatures);
+			//			uint32_t endTick = SysTick->VAL;
+			myprintf("Resultado Inferencia: %ld", result);
 
 
 			/* Escreve no Cartao SD -----------------------------------------------------*/
 //
 //			formatFeaturestoString(&outputString, &tdFeatures, &fdFeatures);
-			formatFeaturesAndResultToString(&outputString, &tdFeatures, &fdFeatures, result);
-			fres =  SDCard_WriteLine(&outputFile, outputString);
-			if (fres != FR_OK) {
-				myprintf("[ERRO] Erro ao escrever linha no arquivo '%s'. Codigo do erro: (%i)\r\n", CSV_FILE_NAME, fres);
-			}
+//			formatFeaturesAndResultToString(&outputString, &tdFeatures, &fdFeatures, result);
+//			fres =  SDCard_WriteLine(&outputFile, outputString);
+//			if (fres != FR_OK) {
+//				myprintf("[ERRO] Erro ao escrever linha no arquivo '%s'. Codigo do erro: (%i)\r\n", CSV_FILE_NAME, fres);
+//			}
 
 //			myprintf("Inference result: %d\r\n", result);
 			// Desaloca memoria usado para escrever no SDCard
-			free(outputString); // libera a memoria alocada na funcao de formatar string
+			//free(outputString); // libera a memoria alocada na funcao de formatar string
 			myprintf("."); // minha barra de progresso ?!
 		}
 
