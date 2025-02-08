@@ -2,7 +2,7 @@
  * StringFormatter.c
  *
  *  Created on: Dec 4, 2024
- *      Author: italo
+ *      Author: Italo LANZA
  */
 #include "StringFormatter.h"
 
@@ -51,6 +51,22 @@ void formatFeaturesAndResultToString(char **bufferPtr, TDFeatures *tdFeat, FDFea
 				fdFeat->PeakLocs3,
 				pResult
 				);
+}
+
+
+void formatTimeArrayToString(char **bufferPtr, uint32_t *tArray) {
+	//	"TempoLeituraSD,TempoNormalizacao,TempoPreProcessamento,TempoFeatTempo,TempoFFT,TempoFeatFrequencia,TempoInferencia"
+	createFormatedString(
+					bufferPtr,
+					"%ld,%ld,%ld,%ld,%ld,%ld,%ld",
+					tArray[0],
+					tArray[1],
+					tArray[2],
+					tArray[3],
+					tArray[4],
+					tArray[5],
+					tArray[6]
+					);
 }
 
 
