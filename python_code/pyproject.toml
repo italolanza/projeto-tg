@@ -6,6 +6,9 @@ authors = ["Italo Milhomem de Abreu Lanza <itmilhomem@gmail.com>"]
 readme = "README.md"
 package-mode = false
 
+[tool.poetry.scripts]
+notebook = "jupyter notebook --notebook-dir=./"
+
 [tool.poetry.dependencies]
 python = "^3.10"
 jupyter = "^1.1.1"
