@@ -12,6 +12,13 @@
 #include <stdarg.h>
 #include "FeatureExtraction.h"
 
+/* Defines -------------------------------------------------------------------*/
+#define MAX_STRING_LENGTH 256
+
+/* Variables -----------------------------------------------------------------*/
+static char formatBuffer[MAX_STRING_LENGTH];
+
+
 /* Typedef -------------------------------------------------------------------*/
 /* Functions prototypes ------------------------------------------------------*/
 void formatFeaturestoString(char **bufferPtr, TDFeatures *tdFeat, FDFeatures *fdFeat);

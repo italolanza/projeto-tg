@@ -9,6 +9,11 @@
 #include <math.h>
 #include <stdio.h>
 
+#define INPUT_BUFFER_SIZE 2048
+static float32_t AbsSig[INPUT_BUFFER_SIZE];
+static float32_t SqrtAbsSig[INPUT_BUFFER_SIZE];
+
+
 void calculateVectorSquareRoot(float32_t *inputArray, float32_t *outputArray, uint32_t length) {
 	for (uint32_t i = 0; i < length; i++) {
 	    arm_sqrt_f32(inputArray[i], &outputArray[i]);
@@ -58,7 +63,7 @@ float32_t calculateSkewness(float32_t *signal, uint32_t length, float32_t mean,
 void extractTimeDomainFeatures(TDFeatures *tdFeatures, float32_t *buffer,
 		uint16_t bufferSize) {
 
-	float32_t AbsSig[bufferSize], SqrtAbsSig[bufferSize];
+//	static float32_t AbsSig[bufferSize], SqrtAbsSig[bufferSize];
 	float32_t MaxValue, MinValue, MeanVal, MeanAbs, MeanSqrtAbs, StdDevValue;
 	uint32_t MaxValueIndex, MinValueIndex;
 
@@ -89,7 +94,7 @@ void extractTimeDomainFeatures(TDFeatures *tdFeatures, float32_t *buffer,
 	/* Calculate Variance */
 	arm_var_f32(buffer, bufferSize, &(tdFeatures->VarianceVal));
 
-	/* Calculate Standart Deviation Value */
+	/* Calculate Standard Deviation Value */
 	arm_std_f32(buffer, bufferSize, &StdDevValue);
 
 	/* Calculate SigShape Value */
@@ -149,38 +154,38 @@ void extractFrequencyDomainFeatures(FDFeatures *fdFeatures, float32_t *buffer,
 //	}
 
 	/* Metodo alternativo - sem precisar de um vetor auxiliar para a magnitude */
-	//The buffer must be the FFT Buffer Output
-	int32_t freqIndex = 0;
-	float32_t curVal;
+
 	for (int index = 0; index < bufferSize; index += 2) {
 
-		// Calcula magnitude do sinal e salva na variavel curVal
-		arm_sqrt_f32(
-					( (buffer[index] * buffer[index])
-					+ (buffer[index + 1] * buffer[index + 1]) ),
-					&curVal
-					);
+        float32_t real = buffer[index];
+        float32_t imag = buffer[index + 1];
+        float32_t mag_sq = real * real + imag * imag; // Magnitude ao quadrado
 
-		if (curVal > fdFeatures->PeakAmp1) {
+        // Atualiza picos (usando magnitude quadrada para comparação)
+		if (mag_sq > fdFeatures->PeakAmp1) {
 			fdFeatures->PeakAmp3 = fdFeatures->PeakAmp2;
 			fdFeatures->PeakAmp2 = fdFeatures->PeakAmp1;
-			fdFeatures->PeakAmp1 = curVal;
+			fdFeatures->PeakAmp1 = mag_sq;
 			fdFeatures->PeakLocs3 = fdFeatures->PeakLocs2;
 			fdFeatures->PeakLocs2 = fdFeatures->PeakLocs1;
-			fdFeatures->PeakLocs1 = (float32_t) ((freqIndex / 2)
+			fdFeatures->PeakLocs1 = (float32_t) ((index / 2)
 					* (sampleRate / ((float32_t) bufferSize)));
-		} else if (curVal > fdFeatures->PeakAmp2) {
+		} else if (mag_sq > fdFeatures->PeakAmp2) {
 			fdFeatures->PeakAmp3 = fdFeatures->PeakAmp2;
-			fdFeatures->PeakAmp2 = curVal;
+			fdFeatures->PeakAmp2 = mag_sq;
 			fdFeatures->PeakLocs3 = fdFeatures->PeakLocs2;
-			fdFeatures->PeakLocs2 = (float32_t) ((freqIndex / 2)
+			fdFeatures->PeakLocs2 = (float32_t) ((index / 2)
 					* (sampleRate / ((float32_t) bufferSize)));
-		} else if (curVal > fdFeatures->PeakAmp3) {
-			fdFeatures->PeakAmp3 = curVal;
-			fdFeatures->PeakLocs3 = (float32_t) ((freqIndex / 2)
+		} else if (mag_sq > fdFeatures->PeakAmp3) {
+			fdFeatures->PeakAmp3 = mag_sq;
+			fdFeatures->PeakLocs3 = (float32_t) ((index / 2)
 					* (sampleRate / ((float32_t) bufferSize)));
 		}
 
-		freqIndex = freqIndex + 2;
 	}
+
+    // Converte magnitude quadrada para amplitude real
+    arm_sqrt_f32(fdFeatures->PeakAmp1, &fdFeatures->PeakAmp1);
+    arm_sqrt_f32(fdFeatures->PeakAmp2, &fdFeatures->PeakAmp2);
+    arm_sqrt_f32(fdFeatures->PeakAmp3, &fdFeatures->PeakAmp3);
 }

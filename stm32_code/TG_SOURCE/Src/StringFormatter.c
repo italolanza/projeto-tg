@@ -5,7 +5,7 @@
  *      Author: Italo LANZA
  */
 #include "StringFormatter.h"
-
+#include <stdio.h>
 
 void formatFeaturestoString(char **bufferPtr, TDFeatures *tdFeat, FDFeatures *fdFeat) {
 	//	RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3
@@ -71,29 +71,17 @@ void formatTimeArrayToString(char **bufferPtr, uint32_t *tArray) {
 
 
 int createFormatedString(char **bufferPtr, const char *fmt, ...) {
-	va_list args;
-	va_start(args, fmt);
 
-	// Calcula o tamanho necessario
-	int len = vsnprintf(NULL, 0, fmt, args);
-	va_end(args);
+    va_list args;
+    va_start(args, fmt);
 
-	if (len < 0) {
-		return -1;  // Erro ao calcular o tamanho
-	}
+    int result = vsnprintf(formatBuffer, MAX_STRING_LENGTH, fmt, args);
+    va_end(args);
 
-	// Aloca memoria suficiente para a string
-	*bufferPtr = (char *)malloc(len + 1);  // +1 para o terminador nulo
+    if (result < 0 || result >= MAX_STRING_LENGTH) {
+        return -1;  // Buffer pequeno ou erro de formatação
+    }
 
-	if (*bufferPtr == NULL) {
-		return -1;  // Falha na alocacao de memoria
-	}
-
-	// Escreve a string formatada no buffer alocado
-	va_start(args, fmt);
-	int result = vsnprintf(*bufferPtr, len + 1, fmt, args);  // Escreve a string
-	va_end(args);
-
-	// Retorna o numero de caracteres escritos (sem o terminador nulo)
-	return result;
+    *bufferPtr = formatBuffer;  // Retorna o buffer estático
+    return result;
 }

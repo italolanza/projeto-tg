@@ -86,8 +86,8 @@ typedef struct {
 
 //#define INT16_TO_FLOAT (1.0 / (32768.0f))
 //#define FLOAT_TO_INT16 32768.0f
-#define INT_TO_FLOAT (1.0 / (4096.0f))
-#define FLOAT_TO_INT 4096.0f
+#define INT12_TO_FLOAT (1.0 / (4096.0f))
+#define FLOAT_TO_INT12 4096.0f
 
 // Definir apenas uma dessas opcoes:
 #define USE_SD_AUDIO           		// Usar audio do cartao SD
@@ -115,23 +115,23 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 // Variaveis comuns
-static volatile int16_t inputBuffer[INPUT_BUFFER_SIZE] = {0};	// Buffer para armazenar os dados de entrada (ADC ou arquivo .wav)
-static float32_t inputSignal[SIGNAL_BUFFER_SIZE] = {0};			// Buffer de entrada da FFT
-float32_t outputSignal[OUTPUT_SIGNAL_SIZE] = {0}; 				// Buffer de saída para os resultados da FFT
-float32_t hanningWindow[OUTPUT_SIGNAL_SIZE]= {0}; 				// Buffer para a janela de hanning
+static volatile int16_t inputBuffer[INPUT_BUFFER_SIZE] = { 0 };	// Buffer para armazenar os dados de entrada (ADC ou arquivo .wav)
+static float32_t inputSignal[SIGNAL_BUFFER_SIZE] = { 0 };		// Buffer de entrada da FFT
+float32_t outputSignal[OUTPUT_SIGNAL_SIZE] = { 0 }; 			// Buffer de saída para os resultados da FFT
+float32_t hanningWindow[OUTPUT_SIGNAL_SIZE] = { 0 }; 			// Buffer para a janela de hanning
 //static volatile uint8_t fftBufferReadyFlag; 					// Variavel que informa se o buffer entrada da FFT esta pronto para processamento
 arm_rfft_fast_instance_f32 fftHandler;							// Esturura para FFT real
-uint32_t deltaTimes[7] = {0};
+uint32_t deltaTimes[7] = { 0 };
 
 #ifdef USE_SD_AUDIO
-int16_t volatile audioBuffer[INPUT_BUFFER_SIZE] = {0}; // Buffer para armazenar amostras de áudio lidas do arquivo WAV
-FATFS FatFs; 							// Estrutura do FatFs
-FIL inputFile;           				// Estrtura de um arquivo do FatFs (Arquivo WAV no cartão SD)
-FIL outputFile;           				// Estrtura de um arquivo do FatFs (Arquivo csv no cartão SD)
-FRESULT fres; 							// Estutura de resultado de uma operacao do FatFs
-UINT bytesRead;                     	// Numero de bytes lidos do arquivo
-WAVHeader wavHeader;					// Estura de um cabecalho de um arquivo .wav
-uint32_t dataSize;						// Variavel para armazenar a quantidade de dados lida do sd card
+int16_t volatile audioBuffer[INPUT_BUFFER_SIZE] = { 0 };	// Buffer para armazenar amostras de áudio lidas do arquivo WAV
+FATFS FatFs; 												// Estrutura do FatFs
+FIL inputFile;     											// Estrtura de um arquivo do FatFs (Arquivo WAV no cartão SD)
+FIL outputFile;   											// Estrtura de um arquivo do FatFs (Arquivo csv no cartão SD)
+FRESULT fres; 												// Estutura de resultado de uma operacao do FatFs
+UINT bytesRead;                     						// Numero de bytes lidos do arquivo
+WAVHeader wavHeader;										// Estura de um cabecalho de um arquivo .wav
+uint32_t dataSize;											// Variavel para armazenar a quantidade de dados lida do sd card
 #endif
 
 #ifdef USE_MIC_AUDIO
@@ -142,10 +142,10 @@ uint32_t dataSize;						// Variavel para armazenar a quantidade de dados lida do
 #endif
 
 // Time Domain Features
-static TDFeatures tdFeatures = {0}; // Estrutura das features relacionadas ao dominio do Tempo
+static TDFeatures tdFeatures = { 0 }; // Estrutura das features relacionadas ao dominio do Tempo
 
 // Frequency Domain Features
-static FDFeatures fdFeatures = {0}; // Estrutura das features relacionadas ao dominio da Frequencia
+static FDFeatures fdFeatures = { 0 }; // Estrutura das features relacionadas ao dominio da Frequencia
 
 /* USER CODE END PV */
 
@@ -190,82 +190,80 @@ void printFeatures(TDFeatures *tdFeat, FDFeatures *fdFeat);
 /* USER CODE END 0 */
 
 /**
-  * @brief  The application entry point.
-  * @retval int
-  */
-int main(void)
-{
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void) {
 
-  /* USER CODE BEGIN 1 */
+	/* USER CODE BEGIN 1 */
 
-  /* USER CODE END 1 */
+	/* USER CODE END 1 */
 
-  /* MCU Configuration--------------------------------------------------------*/
+	/* MCU Configuration--------------------------------------------------------*/
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+	HAL_Init();
 
-  /* USER CODE BEGIN Init */
+	/* USER CODE BEGIN Init */
 
 	arm_rfft_fast_init_f32(&fftHandler, OUTPUT_SIGNAL_SIZE); // Inicializa Estrutura Handler da FFT
 
-  /* USER CODE END Init */
+	/* USER CODE END Init */
 
-  /* Configure the system clock */
-  SystemClock_Config();
+	/* Configure the system clock */
+	SystemClock_Config();
 
-  /* USER CODE BEGIN SysInit */
-  /* USER CODE END SysInit */
+	/* USER CODE BEGIN SysInit */
+	/* USER CODE END SysInit */
 
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_USART2_UART_Init();
-  MX_FATFS_Init();
-  MX_SPI2_Init();
-  MX_TIM2_Init();
-  MX_CRC_Init();
-  /* USER CODE BEGIN 2 */
+	/* Initialize all configured peripherals */
+	MX_GPIO_Init();
+	MX_USART2_UART_Init();
+	MX_FATFS_Init();
+	MX_SPI2_Init();
+	MX_TIM2_Init();
+	MX_CRC_Init();
+	/* USER CODE BEGIN 2 */
 
 	uint32_t sampleRate;
 	size_t sampleSize;
 
 #ifdef USE_SD_AUDIO
 	MX_FATFS_Init();
-	HAL_Delay(3000); 		// Um delay para o cartao SD estabilizar
+	HAL_Delay(3000); 			// Um delay para o cartao SD estabilizar
 	SDCard_Init(&FatFs);
-	HAL_TIM_Base_Start(&htim2); 		// Faz com que o Timer 2 comece a contar
+	HAL_TIM_Base_Start(&htim2);	// Faz com que o Timer 2 comece a contar
 	// Montagem do file system
 	fres = SDCard_Mount();
 	if (fres != FR_OK) {
 		myprintf("[ERRO] Erro no SDCard_Mount. Codigo do erro: (%i)\r\n", fres);
-		while (1) {
-		} // loop infinito para travar a execucao do programa
+
+		Error_Handler(); // loop infinito para travar a execucao do programa
 	}
 
 	// Tenta abrir o arquivo com o nome defino pela flag AUDIO_FILE_NAME
 	fres = SDCard_OpenFile(&inputFile, AUDIO_FILE_NAME, FA_READ);
 	if (fres != FR_OK) {
 		myprintf("[ERRO] Erro ao abrir arquivo '%s'. Codigo do erro: (%i)\r\n",
-				AUDIO_FILE_NAME, fres);
+		AUDIO_FILE_NAME, fres);
 
 		SDCard_Unmount();
 
-		while (1) {
-		} // loop infinito para travar a execucao do programa
+		Error_Handler(); // loop infinito para travar a execucao do programa
 	}
 
 	// Tenta criar o arquivo com o nome defino pela flag CSV_FILE_NAME
-	fres = SDCard_OpenFile(&outputFile, CSV_FILE_NAME, FA_CREATE_ALWAYS | FA_WRITE);
-		if (fres != FR_OK) {
-			myprintf("[ERRO] Erro ao abrir arquivo '%s'. Codigo do erro: (%i)\r\n",
-					CSV_FILE_NAME, fres);
+	fres = SDCard_OpenFile(&outputFile, CSV_FILE_NAME,
+			FA_CREATE_ALWAYS | FA_WRITE);
+	if (fres != FR_OK) {
+		myprintf("[ERRO] Erro ao abrir arquivo '%s'. Codigo do erro: (%i)\r\n",
+		CSV_FILE_NAME, fres);
 
-			SDCard_CloseFile(&inputFile);
-			SDCard_Unmount();
+		SDCard_CloseFile(&inputFile);
+		SDCard_Unmount();
 
-			while (1) {
-			} // loop infinito para travar a execucao do programa
-		}
+		Error_Handler(); // loop infinito para travar a execucao do programa
+	}
 
 	// Ler o cabeçalho do arquivo WAV
 	fres = readWAVHeader(&inputFile, &wavHeader);
@@ -279,8 +277,7 @@ int main(void)
 //		SDCard_CloseFile(&outputFile);
 		SDCard_Unmount();
 
-		while (1) {
-		} // loop infinito para travar a execucao do programa
+		Error_Handler(); // loop infinito para travar a execucao do programa
 	}
 
 	printWAVHeader(&wavHeader);
@@ -291,7 +288,8 @@ int main(void)
 
 		// Acessando os campos do cabeçalho WAV
 		sampleRate = wavHeader.sampleRate;
-		sampleSize = (size_t) ( (wavHeader.bitsPerSample * wavHeader.numChannels) / 8);
+		sampleSize = (size_t) ((wavHeader.bitsPerSample * wavHeader.numChannels)
+				/ 8);
 
 		// Agora, leia os dados do arquivo com base nas informações do cabeçalho
 		dataSize = wavHeader.subchunk2Size;
@@ -318,22 +316,22 @@ int main(void)
 	}
 #endif
 
-  /* USER CODE END 2 */
+	/* USER CODE END 2 */
 
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
+	/* Infinite loop */
+	/* USER CODE BEGIN WHILE */
 
 	myprintf("\r\n~ Projeto TG by Italo ~\r\n\r\n");
 
 	// Criar o vetor da janela Hanning
-//	arm_fill_f32(0.0f, inputSignal, OUTPUT_SIGNAL_SIZE); // Preenche o inputSignal com 0.0 inicialmente
-	arm_fill_f32(1.0f, hanningWindow, OUTPUT_SIGNAL_SIZE); // Preenche o hanningWindow com 1.0 inicialmente
+//	arm_fill_f32(0.0f, inputSignal, OUTPUT_SIGNAL_SIZE); 	// Preenche o inputSignal com 0.0 inicialmente
+	arm_fill_f32(1.0f, hanningWindow, OUTPUT_SIGNAL_SIZE); 	// Preenche o hanningWindow com 1.0 inicialmente
 	createHanningWindow(hanningWindow, OUTPUT_SIGNAL_SIZE); // Aplica o janelamento Hanning no vetor
 
 	myprintf("\r\n~ Processando dados ~\r\n\r\n");
 
-	char *outputString; 	// variavel para armazenar a string de saida
-//	int outputStringSize;	// tamanho da string descontando o caracter nulo
+	char *outputString = NULL; 	// variavel para armazenar a string de saida
+//	int outputStringSize;		// tamanho da string descontando o caracter nulo
 	uint32_t startTick;
 	SDCard_WriteLine(&outputFile, CSV_HEADER);
 
@@ -341,7 +339,8 @@ int main(void)
 #ifdef USE_SD_AUDIO
 
 		size_t bytesToRead =
-				(dataSize > (INPUT_BUFFER_SIZE * sampleSize)) ? (INPUT_BUFFER_SIZE * sampleSize) : dataSize;
+				(dataSize > (INPUT_BUFFER_SIZE * sampleSize)) ?
+						(INPUT_BUFFER_SIZE * sampleSize) : dataSize;
 //		myprintf("\r\n~ Lendo arquivo do cartao SD ~\r\n\r\n");
 
 		startTick = __HAL_TIM_GET_COUNTER(&htim2);
@@ -352,7 +351,7 @@ int main(void)
 
 		startTick = __HAL_TIM_GET_COUNTER(&htim2);
 		// Ler amostras de audio do arquivo .wav no cartão SD
-		if ( fres == FR_OK && bytesRead >= (INPUT_BUFFER_SIZE * sampleSize)) {
+		if (fres == FR_OK && bytesRead >= (INPUT_BUFFER_SIZE * sampleSize)) {
 			// Converter as amostras de 16 bits para float32_t e normalizar
 			for (int i = 0; i < INPUT_BUFFER_SIZE; i++) {
 				// Copia os dados para segunda metade do inputSignal
@@ -367,11 +366,14 @@ int main(void)
 			// Fecha os arquivos WAV, CSV e desmontar o sistema de arquivos
 			myprintf("\r\n");
 			SDCard_CloseFile(&inputFile);
-			myprintf("[INFO] Fechando arquivo \"%s\". Codigo do erro: (%i)\r\n", AUDIO_FILE_NAME, fres);
+			myprintf("[INFO] Fechando arquivo \"%s\". Codigo do erro: (%i)\r\n",
+					AUDIO_FILE_NAME, fres);
 			SDCard_CloseFile(&outputFile);
-			myprintf("[INFO] Fechando arquivo \"%s\". Codigo do erro: (%i)\r\n", CSV_FILE_NAME, fres);
+			myprintf("[INFO] Fechando arquivo \"%s\". Codigo do erro: (%i)\r\n",
+					CSV_FILE_NAME, fres);
 			SDCard_Unmount();
-			myprintf("[INFO] Desmontando FatFs. Codigo do erro: (%i)\r\n", fres);
+			myprintf("[INFO] Desmontando FatFs. Codigo do erro: (%i)\r\n",
+					fres);
 			myprintf("\r\n~ Fim do processamento ~\r\n\r\n");
 			break;
 		}
@@ -396,60 +398,56 @@ int main(void)
 		// TODO: Testar possivel otimizacao removendo essa copia inicial e
 		//       fazendo a multiplicacao direta da janela com o input buffer
 		//  Overlapping de 75% antes do janelamento
-		//			arm_copy_f32(&inputBuffer[n], inputSignal, OUTPUT_SIGNAL_SIZE);
+//		arm_copy_f32(&inputBuffer[n], inputSignal, OUTPUT_SIGNAL_SIZE);
 		// Aplica a janela de hanning no buffer de entrada da fft
-		arm_mult_f32(&inputSignal[INPUT_BUFFER_SIZE], hanningWindow, &inputSignal[INPUT_BUFFER_SIZE],
+		arm_mult_f32(&inputSignal[INPUT_BUFFER_SIZE], hanningWindow,
+				&inputSignal[INPUT_BUFFER_SIZE],
 				OUTPUT_SIGNAL_SIZE);
 		float32_t data[INPUT_BUFFER_SIZE]; // necessario porque a FFT afeta o vetor de entrada
 		// Processamento dos dados lidos (no buffer) necessário
 		// Overlapping de 75% antes do janelamento
 		for (int n = (int) (INPUT_BUFFER_SIZE * (1.0f - OVERLAP_FACTOR));
-				n <= INPUT_BUFFER_SIZE;
-				n = n + ADVANCE_SIZE ) {
+				n <= INPUT_BUFFER_SIZE; n = n + ADVANCE_SIZE) {
 
 			// Copia dados do input buffer para array que vai ser utilizado para processamento
 			// Isso e necessario porque a FFT altera o vetor de entrada
 			// Faco a copia do inputSignal para o data para poder preservar o janelamento
 			arm_copy_f32(&inputSignal[n], &data[0], OUTPUT_SIGNAL_SIZE);
 
-			deltaTimes[2] = __HAL_TIM_GET_COUNTER(&htim2) - startTick; 	// mede o tempo necessario para fazer a multiplicacao
-																		// do vetor de entrada com a janela e copiar o array
-																		// para fazer o janelamento
-
+			deltaTimes[2] = __HAL_TIM_GET_COUNTER(&htim2) - startTick; // mede o tempo necessario para fazer a multiplicacao
+																	   // do vetor de entrada com a janela e copiar o array
+																	   // para fazer o janelamento
 
 			/*---------------------------------------------------------------------------*/
 			/* Extracao das Features no Dominio do Tempo --------------------------------*/
 			/*---------------------------------------------------------------------------*/
 //			myprintf("\r\n~ Extracao das Features no Dominio do Tempo ~\r\n\r\n");
-
 			startTick = __HAL_TIM_GET_COUNTER(&htim2);
 
 			extractTimeDomainFeatures(&tdFeatures, &data[0], INPUT_BUFFER_SIZE);
 
-			deltaTimes[3] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;	// Mede o tempo para extrair as
-																		// features no dominio do Tempo
-
+			deltaTimes[3] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;// Mede o tempo para extrair as
+																	  // features no dominio do Tempo
 
 			/*---------------------------------------------------------------------------*/
 			/* Extracao das Features no Dominio da Frequencia ---------------------------*/
 			/*---------------------------------------------------------------------------*/
 //			myprintf("\r\n~ Extracao das Features no Dominio da Frequencia ~\r\n\r\n");
-
 			// Calcula fft usando a biblioteca da ARM
 			startTick = __HAL_TIM_GET_COUNTER(&htim2);
 
 			arm_rfft_fast_f32(&fftHandler, &data[0], &outputSignal[0], 0); // o ultimo argumento significa que nao queremos calcular a fft inversa
 
-			deltaTimes[4] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;	// Mede o tempo para calcular
-																		// a fft
+			deltaTimes[4] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;// Mede o tempo para calcular
+																	  // a fft
 
 			startTick = __HAL_TIM_GET_COUNTER(&htim2);
 
 			extractFrequencyDomainFeatures(&fdFeatures, outputSignal,
-					OUTPUT_SIGNAL_SIZE, sampleRate);
+			OUTPUT_SIGNAL_SIZE, sampleRate);
 
-			deltaTimes[5] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;	// Mede o tempo para extrair as
-														// features do dominio da Frequencia
+			deltaTimes[5] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;// Mede o tempo para extrair as
+			// features do dominio da Frequencia
 
 			// [DEBUG]
 //			printFeatures(&tdFeatures, &fdFeatures);
@@ -463,18 +461,12 @@ int main(void)
 //			int32_t result = run_inference(test_model(&tdFeatures, &fdFeatures));
 			int32_t result = run_inference(&tdFeatures, &fdFeatures);
 
-			deltaTimes[6] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;	// Mede o tempo que e gasto para
-														// fazer a inferencia
+			deltaTimes[6] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;// Mede o tempo que e gasto para
+																	  // fazer a inferencia
 
-
-			myprintf("%ld,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
-						deltaTimes[0],
-						deltaTimes[1],
-						deltaTimes[2],
-						deltaTimes[3],
-						deltaTimes[4],
-						deltaTimes[5],
-						deltaTimes[6]);
+			myprintf("%ld,%ld,%ld,%ld,%ld,%ld,%ld\r\n", deltaTimes[0],
+					deltaTimes[1], deltaTimes[2], deltaTimes[3], deltaTimes[4],
+					deltaTimes[5], deltaTimes[6]);
 
 			/*---------------------------------------------------------------------------*/
 			/* Escreve no Cartao SD -----------------------------------------------------*/
@@ -483,28 +475,32 @@ int main(void)
 //			formatFeaturestoString(&outputString, &tdFeatures, &fdFeatures);
 //			formatFeaturesAndResultToString(&outputString, &tdFeatures, &fdFeatures, result);
 			formatTimeArrayToString(&outputString, deltaTimes);
-			fres =  SDCard_WriteLine(&outputFile, outputString);
+			fres = SDCard_WriteLine(&outputFile, outputString);
+
 			if (fres != FR_OK) {
-				myprintf("[ERRO] Erro ao escrever linha no arquivo '%s'. Codigo do erro: (%i)\r\n", CSV_FILE_NAME, fres);
+				myprintf(
+						"[ERRO] Erro ao escrever linha no arquivo '%s'. Codigo do erro: (%i)\r\n",
+						CSV_FILE_NAME, fres);
+				SDCard_CloseFile(&outputFile);
+				SDCard_CloseFile(&inputFile);
+				SDCard_Unmount();
+				Error_Handler();
 			}
 
 //			myprintf("Inference result: %d\r\n", result);
-			// Desaloca memoria usado para escrever no SDCard
-			free(outputString); // libera a memoria alocada na funcao de formatar string
 //			myprintf("."); // minha barra de progresso ?!
 		}
 
 		// Atualiza a primeira metade do inputSignal para proxima janela de dados
 		arm_copy_f32(&inputSignal[INPUT_BUFFER_SIZE], &inputSignal[0],
-				OUTPUT_SIGNAL_SIZE);
-
+		OUTPUT_SIGNAL_SIZE);
 
 #ifdef USE_MIC_AUDIO
 		bufferReadyFlag = 0;
 #endif
-    /* USER CODE END WHILE */
+		/* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
+		/* USER CODE BEGIN 3 */
 	}
 
 	myprintf("\r\n~ Fim ~\r\n\r\n");
@@ -512,243 +508,230 @@ int main(void)
 		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 		HAL_Delay(1000);
 	}
-  /* USER CODE END 3 */
+	/* USER CODE END 3 */
 }
 
 /**
-  * @brief System Clock Configuration
-  * @retval None
-  */
-void SystemClock_Config(void)
-{
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void) {
+	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
+	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
 
-  /** Configure the main internal regulator output voltage
-  */
-  __HAL_RCC_PWR_CLK_ENABLE();
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
+	/** Configure the main internal regulator output voltage
+	 */
+	__HAL_RCC_PWR_CLK_ENABLE();
+	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
 
-  /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 16;
-  RCC_OscInitStruct.PLL.PLLN = 336;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
-  RCC_OscInitStruct.PLL.PLLQ = 2;
-  RCC_OscInitStruct.PLL.PLLR = 2;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	/** Initializes the RCC Oscillators according to the specified parameters
+	 * in the RCC_OscInitTypeDef structure.
+	 */
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+	RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+	RCC_OscInitStruct.PLL.PLLM = 16;
+	RCC_OscInitStruct.PLL.PLLN = 336;
+	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
+	RCC_OscInitStruct.PLL.PLLQ = 2;
+	RCC_OscInitStruct.PLL.PLLR = 2;
+	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+		Error_Handler();
+	}
 
-  /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+	/** Initializes the CPU, AHB and APB buses clocks
+	 */
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
+			| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK) {
+		Error_Handler();
+	}
 }
 
 /**
-  * @brief CRC Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_CRC_Init(void)
-{
+ * @brief CRC Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_CRC_Init(void) {
 
-  /* USER CODE BEGIN CRC_Init 0 */
+	/* USER CODE BEGIN CRC_Init 0 */
 
-  /* USER CODE END CRC_Init 0 */
+	/* USER CODE END CRC_Init 0 */
 
-  /* USER CODE BEGIN CRC_Init 1 */
+	/* USER CODE BEGIN CRC_Init 1 */
 
-  /* USER CODE END CRC_Init 1 */
-  hcrc.Instance = CRC;
-  if (HAL_CRC_Init(&hcrc) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN CRC_Init 2 */
+	/* USER CODE END CRC_Init 1 */
+	hcrc.Instance = CRC;
+	if (HAL_CRC_Init(&hcrc) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN CRC_Init 2 */
 
-  /* USER CODE END CRC_Init 2 */
+	/* USER CODE END CRC_Init 2 */
 
 }
 
 /**
-  * @brief SPI2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SPI2_Init(void)
-{
+ * @brief SPI2 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_SPI2_Init(void) {
 
-  /* USER CODE BEGIN SPI2_Init 0 */
+	/* USER CODE BEGIN SPI2_Init 0 */
 
-  /* USER CODE END SPI2_Init 0 */
+	/* USER CODE END SPI2_Init 0 */
 
-  /* USER CODE BEGIN SPI2_Init 1 */
+	/* USER CODE BEGIN SPI2_Init 1 */
 
-  /* USER CODE END SPI2_Init 1 */
-  /* SPI2 parameter configuration*/
-  hspi2.Instance = SPI2;
-  hspi2.Init.Mode = SPI_MODE_MASTER;
-  hspi2.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
-  hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi2.Init.CRCPolynomial = 10;
-  if (HAL_SPI_Init(&hspi2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN SPI2_Init 2 */
+	/* USER CODE END SPI2_Init 1 */
+	/* SPI2 parameter configuration*/
+	hspi2.Instance = SPI2;
+	hspi2.Init.Mode = SPI_MODE_MASTER;
+	hspi2.Init.Direction = SPI_DIRECTION_2LINES;
+	hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
+	hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
+	hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
+	hspi2.Init.NSS = SPI_NSS_SOFT;
+	hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
+	hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
+	hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
+	hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+	hspi2.Init.CRCPolynomial = 10;
+	if (HAL_SPI_Init(&hspi2) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN SPI2_Init 2 */
 
-  /* USER CODE END SPI2_Init 2 */
+	/* USER CODE END SPI2_Init 2 */
 
 }
 
 /**
-  * @brief TIM2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM2_Init(void)
-{
+ * @brief TIM2 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM2_Init(void) {
 
-  /* USER CODE BEGIN TIM2_Init 0 */
+	/* USER CODE BEGIN TIM2_Init 0 */
 
-  /* USER CODE END TIM2_Init 0 */
+	/* USER CODE END TIM2_Init 0 */
 
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
+	TIM_ClockConfigTypeDef sClockSourceConfig = { 0 };
+	TIM_MasterConfigTypeDef sMasterConfig = { 0 };
 
-  /* USER CODE BEGIN TIM2_Init 1 */
+	/* USER CODE BEGIN TIM2_Init 1 */
 
-  /* USER CODE END TIM2_Init 1 */
-  htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 83;
-  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 0xffffffff;
-  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM2_Init 2 */
+	/* USER CODE END TIM2_Init 1 */
+	htim2.Instance = TIM2;
+	htim2.Init.Prescaler = 83;
+	htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+	htim2.Init.Period = 0xffffffff;
+	htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+	htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+	if (HAL_TIM_Base_Init(&htim2) != HAL_OK) {
+		Error_Handler();
+	}
+	sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+	if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK) {
+		Error_Handler();
+	}
+	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+	if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig)
+			!= HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN TIM2_Init 2 */
 
-  /* USER CODE END TIM2_Init 2 */
+	/* USER CODE END TIM2_Init 2 */
 
 }
 
 /**
-  * @brief USART2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART2_UART_Init(void)
-{
+ * @brief USART2 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_USART2_UART_Init(void) {
 
-  /* USER CODE BEGIN USART2_Init 0 */
+	/* USER CODE BEGIN USART2_Init 0 */
 
-  /* USER CODE END USART2_Init 0 */
+	/* USER CODE END USART2_Init 0 */
 
-  /* USER CODE BEGIN USART2_Init 1 */
+	/* USER CODE BEGIN USART2_Init 1 */
 
-  /* USER CODE END USART2_Init 1 */
-  huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200;
-  huart2.Init.WordLength = UART_WORDLENGTH_8B;
-  huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
-  huart2.Init.Mode = UART_MODE_TX_RX;
-  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART2_Init 2 */
+	/* USER CODE END USART2_Init 1 */
+	huart2.Instance = USART2;
+	huart2.Init.BaudRate = 115200;
+	huart2.Init.WordLength = UART_WORDLENGTH_8B;
+	huart2.Init.StopBits = UART_STOPBITS_1;
+	huart2.Init.Parity = UART_PARITY_NONE;
+	huart2.Init.Mode = UART_MODE_TX_RX;
+	huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+	if (HAL_UART_Init(&huart2) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN USART2_Init 2 */
 
-  /* USER CODE END USART2_Init 2 */
+	/* USER CODE END USART2_Init 2 */
 
 }
 
 /**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_GPIO_Init(void)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-/* USER CODE BEGIN MX_GPIO_Init_1 */
-/* USER CODE END MX_GPIO_Init_1 */
+ * @brief GPIO Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_GPIO_Init(void) {
+	GPIO_InitTypeDef GPIO_InitStruct = { 0 };
+	/* USER CODE BEGIN MX_GPIO_Init_1 */
+	/* USER CODE END MX_GPIO_Init_1 */
 
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOH_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
+	/* GPIO Ports Clock Enable */
+	__HAL_RCC_GPIOC_CLK_ENABLE();
+	__HAL_RCC_GPIOH_CLK_ENABLE();
+	__HAL_RCC_GPIOA_CLK_ENABLE();
+	__HAL_RCC_GPIOB_CLK_ENABLE();
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(SD_CS_GPIO_Port, SD_CS_Pin, GPIO_PIN_RESET);
+	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(SD_CS_GPIO_Port, SD_CS_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : B1_Pin */
-  GPIO_InitStruct.Pin = B1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
+	/*Configure GPIO pin : B1_Pin */
+	GPIO_InitStruct.Pin = B1_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : LD2_Pin */
-  GPIO_InitStruct.Pin = LD2_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
+	/*Configure GPIO pin : LD2_Pin */
+	GPIO_InitStruct.Pin = LD2_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : SD_CS_Pin */
-  GPIO_InitStruct.Pin = SD_CS_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(SD_CS_GPIO_Port, &GPIO_InitStruct);
+	/*Configure GPIO pin : SD_CS_Pin */
+	GPIO_InitStruct.Pin = SD_CS_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_PULLUP;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+	HAL_GPIO_Init(SD_CS_GPIO_Port, &GPIO_InitStruct);
 
-/* USER CODE BEGIN MX_GPIO_Init_2 */
-/* USER CODE END MX_GPIO_Init_2 */
+	/* USER CODE BEGIN MX_GPIO_Init_2 */
+	/* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
@@ -773,22 +756,12 @@ void myprintf(const char *fmt, ...) {
 void printFeatures(TDFeatures *tdFeat, FDFeatures *fdFeat) {
 //	RMS,~~Mean~~,~~Median~~,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3,~~FalutID~~
 //	RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3
-	myprintf("%G,%G,%G,%G,%G,%G,%G,%G,%G,%G,%G,%G,%G,%G\r\n",
-			tdFeat->RMS,
-			tdFeat->VarianceVal,
-			tdFeat->SigSkewnessVal,
-			tdFeat->SigKurtosisVal,
-			tdFeat->SigCrestFactor,
-			tdFeat->SigShapeFactor,
-			tdFeat->SigImpulseFactor,
-			tdFeat->SigMarginFactor,
-			fdFeat->PeakAmp1,
-			fdFeat->PeakAmp2,
-			fdFeat->PeakAmp3,
-			fdFeat->PeakLocs1,
-			fdFeat->PeakLocs2,
-			fdFeat->PeakLocs3
-			);
+	myprintf("%G,%G,%G,%G,%G,%G,%G,%G,%G,%G,%G,%G,%G,%G\r\n", tdFeat->RMS,
+			tdFeat->VarianceVal, tdFeat->SigSkewnessVal, tdFeat->SigKurtosisVal,
+			tdFeat->SigCrestFactor, tdFeat->SigShapeFactor,
+			tdFeat->SigImpulseFactor, tdFeat->SigMarginFactor, fdFeat->PeakAmp1,
+			fdFeat->PeakAmp2, fdFeat->PeakAmp3, fdFeat->PeakLocs1,
+			fdFeat->PeakLocs2, fdFeat->PeakLocs3);
 }
 
 FRESULT readWAVHeader(FIL *file, WAVHeader *header) {
@@ -817,9 +790,9 @@ FRESULT readWAVHeader(FIL *file, WAVHeader *header) {
 
 FRESULT readWAVData(FIL *file, void *buffer, size_t numSamplesToRead,
 		size_t *numBytesRead) {
-    // TODO: Consertar funcao para receber o cabecalho do arquivo .wav e calcular
+	// TODO: Consertar funcao para receber o cabecalho do arquivo .wav e calcular
 	//       a quantidade de bytes a serem lidos conforme a quantidade de samples
-    //	     que serao lidas
+	//	     que serao lidas
 	// Ler dados do arquivo WAV
 	size_t bytesToRead;
 
@@ -883,17 +856,16 @@ void printWAVHeader(const WAVHeader *header) {
 /* USER CODE END 4 */
 
 /**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
-void Error_Handler(void)
-{
-  /* USER CODE BEGIN Error_Handler_Debug */
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void) {
+	/* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
 	__disable_irq();
 	while (1) {
 	}
-  /* USER CODE END Error_Handler_Debug */
+	/* USER CODE END Error_Handler_Debug */
 }
 
 #ifdef  USE_FULL_ASSERT
