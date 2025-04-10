@@ -16,6 +16,8 @@ Scritps:
     + `KNeighbors (KNN)`
 + `FeatureExtractor.ipynb` -> Notebook que faz a extracao das features da mesma forma que esta implementado no microncontrolador
 + `FeatureAnalyzer.ipynb` -> Notebook Python que le os arquivos de features do uControlador e do Python e cria graficos dos valores para facilitar a visualizacao/analise;
++ `TimeDataAnalyzer.ipynb` -> - Notebook que faz a analise dos dados de tempo gasto em diferentes partes do codigo que roda no uControlador;
+
 
 ## Como usar o poetry
 
