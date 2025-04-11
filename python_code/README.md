@@ -3,10 +3,11 @@
 Scritps:
 
 + `Main.ipynb` -> Faz a extracao das features dos arquivos de audio (todos) utilizando o script `ExtractFeature.py` e escreve em um arquivo de texto `.csv`;
-+ `TrainClassifier.ipynb` -> Faz o treinamento e avaliacao da acuracia dos classificadores utilizando um arquivo `.csv` gerado pelo notebook `Main.ipynb`;
++ `TrainClassifier.ipynb` -> Faz o treinamento e avaliacao da acuracia dos classificadores utilizando um arquivo `.csv` gerado pelo notebook `Main.ipynb`. Tambem gera modelos treinados do `EMLEARN`;
 + `doFilterHP.py` -> Adaptacao para Python do script de mesmo nome escrito Matlab do autor do artigo que aplica um filtro de Banda Alta;
 + `ExtractFeatures.py` -> Adaptacao para Python do script escrito em Matlab do autor do artigo que faz a extracao das features com base em um arquivo de audio;
 + `Teste_converter_audio2wav.ipynb` -> Notebook simples que utiliza a biblioteca `soundfile` para converter um arquivo de audio de extensao `.flac` para `.wav`;
++ `Test_EMLEARN.ipynb` -> Notebook para testar o funcionamento da biblioteca **emlearn**. Treina modelos e gera os arquivos **`.h`** que podem ser utilizados no uControlador.
 + `SDCard.py` -> Faz o treinamento e testa acuracia dos classificadores utilizando um arquivo csv (SDCard.txt) que contem as features extraidas dos audios. Utiliza apenas um subset das features. Serve mais para teste.
   + Classificadores utilizados:
     + `Bagged Trees Ensemble`
