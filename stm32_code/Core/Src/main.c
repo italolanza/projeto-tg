@@ -72,10 +72,10 @@ typedef struct {
 
 #define AUDIO_FILE_NAME "off.wav"
 //#define CSV_FILE_NAME "off.csv"
-#define CSV_FILE_NAME "rf-t-off.csv"
+#define CSV_FILE_NAME "dt-f-off.csv"
 //#define CSV_HEADER "RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3"
-//#define CSV_HEADER "RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3,FAULT_ID"
-#define CSV_HEADER "TempoLeituraSD,TempoNormalizacao,TempoPreProcessamento,TempoFeatTempo,TempoFFT,TempoFeatFrequencia,TempoInferencia"
+#define CSV_HEADER "RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3,FAULT_ID"
+//#define CSV_HEADER "TempoLeituraSD,TempoNormalizacao,TempoJanela,TempoFeatTempo,TempoFFT,TempoFeatFrequencia,TempoInferencia,TempoTotalBatch"
 #define INPUT_BUFFER_SIZE 2048
 #define HALF_INPUT_BUFFER_SIZE (INPUT_BUFFER_SIZE / 2)
 #define SIGNAL_BUFFER_SIZE (INPUT_BUFFER_SIZE * 2)
@@ -121,7 +121,7 @@ float32_t outputSignal[OUTPUT_SIGNAL_SIZE] = { 0 }; 			// Buffer de saída para 
 float32_t hanningWindow[OUTPUT_SIGNAL_SIZE] = { 0 }; 			// Buffer para a janela de hanning
 //static volatile uint8_t fftBufferReadyFlag; 					// Variavel que informa se o buffer entrada da FFT esta pronto para processamento
 arm_rfft_fast_instance_f32 fftHandler;							// Esturura para FFT real
-uint32_t deltaTimes[7] = { 0 };
+//uint32_t deltaTimes[8] = { 0 };
 
 #ifdef USE_SD_AUDIO
 int16_t volatile audioBuffer[INPUT_BUFFER_SIZE] = { 0 };	// Buffer para armazenar amostras de áudio lidas do arquivo WAV
@@ -333,7 +333,7 @@ int main(void)
 
 	char *outputString = NULL; 	// variavel para armazenar a string de saida
 //	int outputStringSize;		// tamanho da string descontando o caracter nulo
-	uint32_t startTick;
+//	uint32_t startTick, startTime;
 	SDCard_WriteLine(&outputFile, CSV_HEADER);
 
 	while (1) {
@@ -344,13 +344,14 @@ int main(void)
 						(INPUT_BUFFER_SIZE * sampleSize) : dataSize;
 //		myprintf("\r\n~ Lendo arquivo do cartao SD ~\r\n\r\n");
 
-		startTick = __HAL_TIM_GET_COUNTER(&htim2);
+//		startTick = __HAL_TIM_GET_COUNTER(&htim2);
 
 		fres = SDCard_Read(&inputFile, inputBuffer, bytesToRead, &bytesRead);
 
-		deltaTimes[0] = __HAL_TIM_GET_COUNTER(&htim2) - startTick; // Mede o tempo que demorou para fazer a leitura do arquivo csv
+//		deltaTimes[0] = __HAL_TIM_GET_COUNTER(&htim2) - startTick; // Mede o tempo que demorou para fazer a leitura do arquivo csv
 
-		startTick = __HAL_TIM_GET_COUNTER(&htim2);
+//		startTick = __HAL_TIM_GET_COUNTER(&htim2);
+//		startTime = startTick;
 		// Ler amostras de audio do arquivo .wav no cartão SD
 		if (fres == FR_OK && bytesRead >= (INPUT_BUFFER_SIZE * sampleSize)) {
 			// Converter as amostras de 16 bits para float32_t e normalizar
@@ -359,7 +360,9 @@ int main(void)
 				inputSignal[INPUT_BUFFER_SIZE + i] = (float32_t) inputBuffer[i];
 //				inputSignal[INPUT_BUFFER_SIZE + i] = (float32_t) inputBuffer[i] / 32768.0f; // Normalizacao de 16 bits para float
 			}
-			deltaTimes[1] = __HAL_TIM_GET_COUNTER(&htim2) - startTick; //Mede o tempo que demorou para fazer a normalizacao
+
+//			deltaTimes[1] = __HAL_TIM_GET_COUNTER(&htim2) - startTick; //Mede o tempo que demorou para fazer a normalizacao
+
 		} else {
 			// Erro de leitura ou fim de arquivo
 			//f_lseek(&inputFile, 44); 	// Reinicia o arquivo (ciclo)
@@ -395,7 +398,7 @@ int main(void)
 		/* Pre-processamento --------------------------------------------------------*/
 		/*---------------------------------------------------------------------------*/
 
-		startTick = __HAL_TIM_GET_COUNTER(&htim2);
+//		startTick = __HAL_TIM_GET_COUNTER(&htim2);
 		// TODO: Testar possivel otimizacao removendo essa copia inicial e
 		//       fazendo a multiplicacao direta da janela com o input buffer
 		//  Overlapping de 75% antes do janelamento
@@ -405,29 +408,31 @@ int main(void)
 				&inputSignal[INPUT_BUFFER_SIZE],
 				OUTPUT_SIGNAL_SIZE);
 		float32_t data[INPUT_BUFFER_SIZE]; // necessario porque a FFT afeta o vetor de entrada
+
+//		deltaTimes[2] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;  // mede o tempo gasto para fazer multiplicacao
+																	// pela janela
+
+
 		// Processamento dos dados lidos (no buffer) necessário
 		// Overlapping de 75% antes do janelamento
 		for (int n = (int) (INPUT_BUFFER_SIZE * (1.0f - OVERLAP_FACTOR));
 				n <= INPUT_BUFFER_SIZE; n = n + ADVANCE_SIZE) {
+
 
 			// Copia dados do input buffer para array que vai ser utilizado para processamento
 			// Isso e necessario porque a FFT altera o vetor de entrada
 			// Faco a copia do inputSignal para o data para poder preservar o janelamento
 			arm_copy_f32(&inputSignal[n], &data[0], OUTPUT_SIGNAL_SIZE);
 
-			deltaTimes[2] = __HAL_TIM_GET_COUNTER(&htim2) - startTick; // mede o tempo necessario para fazer a multiplicacao
-																	   // do vetor de entrada com a janela e copiar o array
-																	   // para fazer o janelamento
-
 			/*---------------------------------------------------------------------------*/
 			/* Extracao das Features no Dominio do Tempo --------------------------------*/
 			/*---------------------------------------------------------------------------*/
 //			myprintf("\r\n~ Extracao das Features no Dominio do Tempo ~\r\n\r\n");
-			startTick = __HAL_TIM_GET_COUNTER(&htim2);
+//			startTick = __HAL_TIM_GET_COUNTER(&htim2);
 
 			extractTimeDomainFeatures(&tdFeatures, &data[0], INPUT_BUFFER_SIZE);
 
-			deltaTimes[3] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;// Mede o tempo para extrair as
+//			deltaTimes[3] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;// Mede o tempo para extrair as
 																	  // features no dominio do Tempo
 
 			/*---------------------------------------------------------------------------*/
@@ -435,19 +440,19 @@ int main(void)
 			/*---------------------------------------------------------------------------*/
 //			myprintf("\r\n~ Extracao das Features no Dominio da Frequencia ~\r\n\r\n");
 			// Calcula fft usando a biblioteca da ARM
-			startTick = __HAL_TIM_GET_COUNTER(&htim2);
+//			startTick = __HAL_TIM_GET_COUNTER(&htim2);
 
 			arm_rfft_fast_f32(&fftHandler, &data[0], &outputSignal[0], 0); // o ultimo argumento significa que nao queremos calcular a fft inversa
 
-			deltaTimes[4] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;// Mede o tempo para calcular
+//			deltaTimes[4] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;// Mede o tempo para calcular
 																	  // a fft
 
-			startTick = __HAL_TIM_GET_COUNTER(&htim2);
+//			startTick = __HAL_TIM_GET_COUNTER(&htim2);
 
 			extractFrequencyDomainFeatures(&fdFeatures, outputSignal,
 			OUTPUT_SIGNAL_SIZE, sampleRate);
 
-			deltaTimes[5] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;// Mede o tempo para extrair as
+//			deltaTimes[5] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;// Mede o tempo para extrair as
 			// features do dominio da Frequencia
 
 			// [DEBUG]
@@ -457,25 +462,20 @@ int main(void)
 			/* Faz Inferencia -----------------------------------------------------------*/
 			/*---------------------------------------------------------------------------*/
 //			myprintf("\r\n~ Faz Inferencia ~\r\n\r\n");
-			startTick = __HAL_TIM_GET_COUNTER(&htim2);
+//			startTick = __HAL_TIM_GET_COUNTER(&htim2);
 
 //			int32_t result = run_inference(test_model(&tdFeatures, &fdFeatures));
 			int32_t result = run_inference(&tdFeatures, &fdFeatures);
 
-			deltaTimes[6] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;// Mede o tempo que e gasto para
+//			deltaTimes[6] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;// Mede o tempo que e gasto para
 																	  // fazer a inferencia
-
-//			myprintf("%ld,%ld,%ld,%ld,%ld,%ld,%ld\r\n", deltaTimes[0],
-//					deltaTimes[1], deltaTimes[2], deltaTimes[3], deltaTimes[4],
-//					deltaTimes[5], deltaTimes[6]);
-
 			/*---------------------------------------------------------------------------*/
 			/* Escreve no Cartao SD -----------------------------------------------------*/
 			/*---------------------------------------------------------------------------*/
 //
 //			formatFeaturestoString(&outputString, &tdFeatures, &fdFeatures);
-//			formatFeaturesAndResultToString(&outputString, &tdFeatures, &fdFeatures, result);
-			formatTimeArrayToString(&outputString, deltaTimes);
+			formatFeaturesAndResultToString(&outputString, &tdFeatures, &fdFeatures, result);
+//			formatTimeArrayToString(&outputString, deltaTimes);
 			fres = SDCard_WriteLine(&outputFile, outputString);
 
 			if (fres != FR_OK) {
@@ -492,9 +492,28 @@ int main(void)
 			myprintf("."); // minha barra de progresso ?!
 		}
 
+
 		// Atualiza a primeira metade do inputSignal para proxima janela de dados
 		arm_copy_f32(&inputSignal[INPUT_BUFFER_SIZE], &inputSignal[0],
 		OUTPUT_SIGNAL_SIZE);
+
+//		deltaTimes[7] = __HAL_TIM_GET_COUNTER(&htim2) - startTime; // Mede o tempo total gasto pra
+																   // processar as janela
+
+//		myprintf("."); // minha barra de progresso ?!
+
+//		formatTimeArrayToString(&outputString, deltaTimes);
+//		fres = SDCard_WriteLine(&outputFile, outputString);
+//
+//		if (fres != FR_OK) {
+//			myprintf(
+//					"[ERRO] Erro ao escrever linha no arquivo '%s'. Codigo do erro: (%i)\r\n",
+//					CSV_FILE_NAME, fres);
+//			SDCard_CloseFile(&outputFile);
+//			SDCard_CloseFile(&inputFile);
+//			SDCard_Unmount();
+//			Error_Handler();
+//		}
 
 #ifdef USE_MIC_AUDIO
 		bufferReadyFlag = 0;

@@ -6,9 +6,9 @@
  */
 
 #include "ModelSupportFunctions.h"
-//#include "decision_tree_model.h"
+#include "decision_tree_model.h"
 //#include "extra_trees_model.h"
-#include "gaussian_naive_bayes_model.h"
+//#include "gaussian_naive_bayes_model.h"
 //#include "random_forest_model.h"
 
 
