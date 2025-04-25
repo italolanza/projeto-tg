@@ -80,7 +80,7 @@ typedef struct {
 #define HALF_INPUT_BUFFER_SIZE (INPUT_BUFFER_SIZE / 2)
 #define SIGNAL_BUFFER_SIZE (INPUT_BUFFER_SIZE * 2)
 #define OUTPUT_SIGNAL_SIZE (SIGNAL_BUFFER_SIZE / 2)
-#define SAMPLE_RATE_HZ 44800 											//TODO: MUDAR DE ACORDO COM O VALOR REAL MOSTRADO PELO PROJETO
+#define SAMPLE_RATE_HZ 48000 											//TODO: MUDAR DE ACORDO COM O VALOR REAL MOSTRADO PELO PROJETO
 #define OVERLAP_FACTOR 0.75  											// Overlapping de 75%
 #define ADVANCE_SIZE (int)(INPUT_BUFFER_SIZE * (1.0f - OVERLAP_FACTOR)) // 25% de avanco
 
@@ -326,8 +326,8 @@ int main(void)
 
 	// Criar o vetor da janela Hanning
 //	arm_fill_f32(0.0f, inputSignal, OUTPUT_SIGNAL_SIZE); 	// Preenche o inputSignal com 0.0 inicialmente
-	arm_fill_f32(1.0f, hanningWindow, OUTPUT_SIGNAL_SIZE); 	// Preenche o hanningWindow com 1.0 inicialmente
-	createHanningWindow(hanningWindow, OUTPUT_SIGNAL_SIZE); // Aplica o janelamento Hanning no vetor
+//	arm_fill_f32(1.0f, hanningWindow, OUTPUT_SIGNAL_SIZE); 	// Preenche o hanningWindow com 1.0 inicialmente
+	createHanningWindow(hanningWindow, OUTPUT_SIGNAL_SIZE); // Cria o vetor com a janela de Hann
 
 	myprintf("\r\n~ Processando dados ~\r\n\r\n");
 
@@ -770,7 +770,7 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 void createHanningWindow(float32_t *window, int size) {
 	for (int n = 0; n < size; n++) {
-		window[n] = window[n] * (0.5 - 0.5 * cos(2.0 * M_PI * n / (size - 1)));
+		window[n] = 0.5 - (0.5 * cos(2.0 * M_PI * n / (size - 1)));
 	}
 }
 
