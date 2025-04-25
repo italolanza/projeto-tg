@@ -15,9 +15,10 @@ Scritps:
     + `Fine Decision Tree`
     + `Naïve Bayes`
     + `KNeighbors (KNN)`
-+ `FeatureExtractor.ipynb` -> Notebook que faz a extracao das features da mesma forma que esta implementado no microncontrolador
++ `FeatureExtractor_uC.ipynb` -> Notebook que faz a extracao das features em Python da mesma forma que esta implementado no microncontrolador
 + `FeatureAnalyzer.ipynb` -> Notebook Python que le os arquivos de features do uControlador e do Python e cria graficos dos valores para facilitar a visualizacao/analise;
-+ `TimeDataAnalyzer.ipynb` -> - Notebook que faz a analise dos dados de tempo gasto em diferentes partes do codigo que roda no uControlador;
++ `TimeDataAnalyzer.ipynb` -> Notebook que faz a analise dos dados de tempo gasto em diferentes partes do codigo que roda no uControlador;
++ `DataAnalyzer.ipynb` -> Notebook que faz a analise dos dados coletados features extraidas do microcontrolador e geras os graficos para serem utilizados no relatorio do TG
 
 
 ## Como usar o poetry
