@@ -126,66 +126,63 @@ void extractFrequencyDomainFeatures(FDFeatures *fdFeatures, float32_t *buffer,
 	memset(fdFeatures, 0, sizeof(FDFeatures));
 
 	/* Calcula vetor de Magnitudes */
-//	float32_t fftMag[bufferSize/2];
-//	arm_cmplx_mag_f32(buffer, fftMag, (bufferSize/2));
-//
-//	for (int index = 0; index < bufferSize / 2; index += 1) {
-//		float curVal = fftMag[index];
-//
-//		if (curVal > fdFeatures->PeakAmp1) {
-//			fdFeatures->PeakAmp3 = fdFeatures->PeakAmp2;
-//			fdFeatures->PeakAmp2 = fdFeatures->PeakAmp1;
-//			fdFeatures->PeakAmp1 = curVal;
-//			fdFeatures->PeakLocs3 = fdFeatures->PeakLocs2;
-//			fdFeatures->PeakLocs2 = fdFeatures->PeakLocs1;
-//			fdFeatures->PeakLocs1 = (uint32_t) (index
-//					* (sampleRate / ((float) bufferSize)));
-//		} else if (curVal > fdFeatures->PeakAmp2) {
-//			fdFeatures->PeakAmp3 = fdFeatures->PeakAmp2;
-//			fdFeatures->PeakAmp2 = curVal;
-//			fdFeatures->PeakLocs3 = fdFeatures->PeakLocs2;
-//			fdFeatures->PeakLocs2 = (uint32_t) (index
-//					* (sampleRate / ((float) bufferSize)));
-//		} else if (curVal > fdFeatures->PeakAmp3) {
-//			fdFeatures->PeakAmp3 = curVal;
-//			fdFeatures->PeakLocs3 = (uint32_t) (index
-//					* (sampleRate / ((float) bufferSize)));
-//		}
-//	}
+	float32_t fftMag[bufferSize/2];
+	arm_cmplx_mag_f32(buffer, fftMag, (bufferSize/2));
+
+	for (int index = 0; index < bufferSize / 2; index += 1) {
+		float curVal = fftMag[index];
+
+		if (curVal > fdFeatures->PeakAmp1) {
+			fdFeatures->PeakAmp3 = fdFeatures->PeakAmp2;
+			fdFeatures->PeakAmp2 = fdFeatures->PeakAmp1;
+			fdFeatures->PeakAmp1 = curVal;
+			fdFeatures->PeakLocs3 = fdFeatures->PeakLocs2;
+			fdFeatures->PeakLocs2 = fdFeatures->PeakLocs1;
+			fdFeatures->PeakLocs1 =  (index	* (sampleRate / ((float) bufferSize)));
+		} else if (curVal > fdFeatures->PeakAmp2) {
+			fdFeatures->PeakAmp3 = fdFeatures->PeakAmp2;
+			fdFeatures->PeakAmp2 = curVal;
+			fdFeatures->PeakLocs3 = fdFeatures->PeakLocs2;
+			fdFeatures->PeakLocs2 = (index * (sampleRate / ((float) bufferSize)));
+		} else if (curVal > fdFeatures->PeakAmp3) {
+			fdFeatures->PeakAmp3 = curVal;
+			fdFeatures->PeakLocs3 = (index * (sampleRate / ((float) bufferSize)));
+		}
+	}
 
 	/* Metodo alternativo - sem precisar de um vetor auxiliar para a magnitude */
 
-	for (int index = 0; index < bufferSize; index += 2) {
-
-        float32_t real = buffer[index];
-        float32_t imag = buffer[index + 1];
-        float32_t mag_sq = real * real + imag * imag; // Magnitude ao quadrado
-
-        // Atualiza picos (usando magnitude quadrada para comparação)
-		if (mag_sq > fdFeatures->PeakAmp1) {
-			fdFeatures->PeakAmp3 = fdFeatures->PeakAmp2;
-			fdFeatures->PeakAmp2 = fdFeatures->PeakAmp1;
-			fdFeatures->PeakAmp1 = mag_sq;
-			fdFeatures->PeakLocs3 = fdFeatures->PeakLocs2;
-			fdFeatures->PeakLocs2 = fdFeatures->PeakLocs1;
-			fdFeatures->PeakLocs1 = (float32_t) ((index)
-					* (sampleRate / ((float32_t) bufferSize)));
-		} else if (mag_sq > fdFeatures->PeakAmp2) {
-			fdFeatures->PeakAmp3 = fdFeatures->PeakAmp2;
-			fdFeatures->PeakAmp2 = mag_sq;
-			fdFeatures->PeakLocs3 = fdFeatures->PeakLocs2;
-			fdFeatures->PeakLocs2 = (float32_t) ((index)
-					* (sampleRate / ((float32_t) bufferSize)));
-		} else if (mag_sq > fdFeatures->PeakAmp3) {
-			fdFeatures->PeakAmp3 = mag_sq;
-			fdFeatures->PeakLocs3 = (float32_t) ((index)
-					* (sampleRate / ((float32_t) bufferSize)));
-		}
-
-	}
-
-    // Converte magnitude quadrada para amplitude real
-    arm_sqrt_f32(fdFeatures->PeakAmp1, &fdFeatures->PeakAmp1);
-    arm_sqrt_f32(fdFeatures->PeakAmp2, &fdFeatures->PeakAmp2);
-    arm_sqrt_f32(fdFeatures->PeakAmp3, &fdFeatures->PeakAmp3);
+//	for (int index = 0; index < bufferSize; index += 2) {
+//
+//        float32_t real = buffer[index];
+//        float32_t imag = buffer[index + 1];
+//        float32_t mag_sq = real * real + imag * imag; // Magnitude ao quadrado
+//
+//        // Atualiza picos (usando magnitude quadrada para comparação)
+//		if (mag_sq > fdFeatures->PeakAmp1) {
+//			fdFeatures->PeakAmp3 = fdFeatures->PeakAmp2;
+//			fdFeatures->PeakAmp2 = fdFeatures->PeakAmp1;
+//			fdFeatures->PeakAmp1 = mag_sq;
+//			fdFeatures->PeakLocs3 = fdFeatures->PeakLocs2;
+//			fdFeatures->PeakLocs2 = fdFeatures->PeakLocs1;
+//			fdFeatures->PeakLocs1 = (float32_t) ((index)
+//					* (sampleRate / ((float32_t) bufferSize)));
+//		} else if (mag_sq > fdFeatures->PeakAmp2) {
+//			fdFeatures->PeakAmp3 = fdFeatures->PeakAmp2;
+//			fdFeatures->PeakAmp2 = mag_sq;
+//			fdFeatures->PeakLocs3 = fdFeatures->PeakLocs2;
+//			fdFeatures->PeakLocs2 = (float32_t) ((index)
+//					* (sampleRate / ((float32_t) bufferSize)));
+//		} else if (mag_sq > fdFeatures->PeakAmp3) {
+//			fdFeatures->PeakAmp3 = mag_sq;
+//			fdFeatures->PeakLocs3 = (float32_t) ((index)
+//					* (sampleRate / ((float32_t) bufferSize)));
+//		}
+//
+//	}
+//
+//    // Converte magnitude quadrada para amplitude real
+//    arm_sqrt_f32(fdFeatures->PeakAmp1, &fdFeatures->PeakAmp1);
+//    arm_sqrt_f32(fdFeatures->PeakAmp2, &fdFeatures->PeakAmp2);
+//    arm_sqrt_f32(fdFeatures->PeakAmp3, &fdFeatures->PeakAmp3);
 }
