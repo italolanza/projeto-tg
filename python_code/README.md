@@ -8,7 +8,7 @@ Scritps:
 + `ExtractFeatures.py` -> Adaptacao para Python do script escrito em Matlab do autor do artigo que faz a extracao das features com base em um arquivo de audio;
 + `Teste_converter_audio2wav.ipynb` -> Notebook simples que utiliza a biblioteca `soundfile` para converter um arquivo de audio de extensao `.flac` para `.wav`;
 + `Test_EMLEARN.ipynb` -> Notebook para testar o funcionamento da biblioteca **emlearn**. Treina modelos e gera os arquivos **`.h`** que podem ser utilizados no uControlador.
-+ `SDCard.py` -> Faz o treinamento e testa acuracia dos classificadores utilizando um arquivo csv (SDCard.txt) que contem as features extraidas dos audios. Utiliza apenas um subset das features. Serve mais para teste.
++ `SDCard.py` -> Faz o treinamento e testa acuracia dos classificadores utilizando um arquivo csv (SDCard.txt) que contem as features extraidas dos audios. Utiliza apenas um subset das features. _Serve mais para teste_.
   + Classificadores utilizados:
     + `Bagged Trees Ensemble`
     + `Quadratic SVM`
