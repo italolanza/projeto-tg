@@ -74,7 +74,7 @@ typedef struct {
 //#define CSV_FILE_NAME "off.csv"
 #define CSV_FILE_NAME "dt-f-off.csv"
 //#define CSV_HEADER "RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3"
-#define CSV_HEADER "RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3,FAULT_ID"
+#define CSV_HEADER "RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3,Predicted"
 //#define CSV_HEADER "TempoLeituraSD,TempoNormalizacao,TempoJanela,TempoFeatTempo,TempoFFT,TempoFeatFrequencia,TempoInferencia,TempoTotalBatch"
 #define INPUT_BUFFER_SIZE 2048
 #define HALF_INPUT_BUFFER_SIZE (INPUT_BUFFER_SIZE / 2)
@@ -231,7 +231,7 @@ int main(void)
 
 #ifdef USE_SD_AUDIO
 	MX_FATFS_Init();
-	HAL_Delay(3000); 			// Um delay para o cartao SD estabilizar
+	HAL_Delay(4000); 			// Um delay para o cartao SD estabilizar
 	SDCard_Init(&FatFs);
 	HAL_TIM_Base_Start(&htim2);	// Faz com que o Timer 2 comece a contar
 	// Montagem do file system
@@ -490,6 +490,7 @@ int main(void)
 
 //			myprintf("Inference result: %d\r\n", result);
 			myprintf("."); // minha barra de progresso ?!
+			HAL_Delay(50);
 		}
 
 
@@ -624,10 +625,10 @@ static void MX_SPI2_Init(void)
   hspi2.Init.Mode = SPI_MODE_MASTER;
   hspi2.Init.Direction = SPI_DIRECTION_2LINES;
   hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi2.Init.CLKPolarity = SPI_POLARITY_HIGH;
+  hspi2.Init.CLKPhase = SPI_PHASE_2EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
