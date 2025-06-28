@@ -7,7 +7,7 @@
 #include "StringFormatter.h"
 #include <stdio.h>
 
-void formatFeaturestoString(char **bufferPtr, TDFeatures *tdFeat, FDFeatures *fdFeat) {
+void formatFeaturestoString(char *bufferPtr, TDFeatures *tdFeat, FDFeatures *fdFeat) {
 	//	RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3
 	createFormatedString(
 			bufferPtr,
@@ -30,7 +30,7 @@ void formatFeaturestoString(char **bufferPtr, TDFeatures *tdFeat, FDFeatures *fd
 }
 
 
-void formatFeaturesAndResultToString(char **bufferPtr, TDFeatures *tdFeat, FDFeatures *fdFeat, int32_t pResult) {
+void formatFeaturesAndResultToString(char *bufferPtr, TDFeatures *tdFeat, FDFeatures *fdFeat, int32_t pResult) {
 	//	RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3
 		createFormatedString(
 				bufferPtr,
@@ -54,7 +54,7 @@ void formatFeaturesAndResultToString(char **bufferPtr, TDFeatures *tdFeat, FDFea
 }
 
 
-void formatTimeArrayToString(char **bufferPtr, uint32_t *tArray) {
+void formatTimeArrayToString(char *bufferPtr, uint32_t *tArray) {
 	//	"TempoLeituraSD,TempoNormalizacao,TempoPreProcessamento,TempoFeatTempo,TempoFFT,TempoFeatFrequencia,TempoInferencia"
 	createFormatedString(
 					bufferPtr,
@@ -71,18 +71,18 @@ void formatTimeArrayToString(char **bufferPtr, uint32_t *tArray) {
 }
 
 
-int createFormatedString(char **bufferPtr, const char *fmt, ...) {
+int createFormatedString(char *bufferPtr, const char *fmt, ...) {
 
     va_list args;
     va_start(args, fmt);
 
-    int result = vsnprintf(formatBuffer, MAX_STRING_LENGTH, fmt, args);
+    int result = vsnprintf(bufferPtr, MAX_STRING_LENGTH, fmt, args);
     va_end(args);
 
     if (result < 0 || result >= MAX_STRING_LENGTH) {
         return -1;  // Buffer pequeno ou erro de formatação
     }
 
-    *bufferPtr = formatBuffer;  // Retorna o buffer estático
+//    *bufferPtr = formatBuffer;  // Retorna o buffer estático
     return result;
 }

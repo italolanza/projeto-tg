@@ -16,15 +16,15 @@
 #define MAX_STRING_LENGTH 256
 
 /* Variables -----------------------------------------------------------------*/
-static char formatBuffer[MAX_STRING_LENGTH];
+//static char formatBuffer[MAX_STRING_LENGTH];
 
 
 /* Typedef -------------------------------------------------------------------*/
 /* Functions prototypes ------------------------------------------------------*/
-void formatFeaturestoString(char **bufferPtr, TDFeatures *tdFeat, FDFeatures *fdFeat);
-void formatFeaturesAndResultToString(char **bufferPtr, TDFeatures *tdFeat, FDFeatures *fdFeat, int32_t pResult);
-void formatTimeArrayToString(char **bufferPtr, uint32_t *tArray);
-int createFormatedString(char **bufferPtr, const char *fmt, ...);
+void formatFeaturestoString(char *bufferPtr, TDFeatures *tdFeat, FDFeatures *fdFeat);
+void formatFeaturesAndResultToString(char *bufferPtr, TDFeatures *tdFeat, FDFeatures *fdFeat, int32_t pResult);
+void formatTimeArrayToString(char *bufferPtr, uint32_t *tArray);
+int createFormatedString(char *bufferPtr, const char *fmt, ...);
 
 
 #endif /* INC_STRINGFORMATTER_H_ */

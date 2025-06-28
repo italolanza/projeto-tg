@@ -70,9 +70,9 @@ typedef struct {
  * f3.wav
  */
 
-#define AUDIO_FILE_NAME "off.wav"
+#define AUDIO_FILE_NAME "f3.wav"
 //#define CSV_FILE_NAME "off.csv"
-#define CSV_FILE_NAME "dt-f-off.csv"
+#define CSV_FILE_NAME "dt-f-f3.csv"
 //#define CSV_HEADER "RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3"
 #define CSV_HEADER "RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3,Predicted"
 //#define CSV_HEADER "TempoLeituraSD,TempoNormalizacao,TempoJanela,TempoFeatTempo,TempoFFT,TempoFeatFrequencia,TempoInferencia,TempoTotalBatch"
@@ -83,8 +83,9 @@ typedef struct {
 #define SAMPLE_RATE_HZ 48000 											//TODO: MUDAR DE ACORDO COM O VALOR REAL MOSTRADO PELO PROJETO
 #define OVERLAP_FACTOR 0.75  											// Overlapping de 75%
 #define ADVANCE_SIZE (int)(INPUT_BUFFER_SIZE * (1.0f - OVERLAP_FACTOR)) // 25% de avanco
+#define NUM_STAGES 4 													// Filtro Ordem 8
 
-//#define INT16_TO_FLOAT (1.0 / (32768.0f))
+#define INT16_TO_FLOAT (1.0f / (32768.0f))
 //#define FLOAT_TO_INT16 32768.0f
 #define INT12_TO_FLOAT (1.0 / (4096.0f))
 #define FLOAT_TO_INT12 4096.0f
@@ -95,7 +96,7 @@ typedef struct {
 
 // Verificação para garantir que apenas uma opcao esta ativa
 #if defined(USE_SD_AUDIO) && defined(USE_MIC_AUDIO)
-	#error "Vocc deve definir apenas uma das opcoes: USE_SD_AUDIO ou USE_MIC_AUDIO"
+	#error "Voce deve definir apenas uma das opcoes: USE_SD_AUDIO ou USE_MIC_AUDIO"
 #endif
 
 /* USER CODE END PD */
@@ -115,13 +116,23 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 // Variaveis comuns
-static volatile int16_t inputBuffer[INPUT_BUFFER_SIZE] = { 0 };	// Buffer para armazenar os dados de entrada (ADC ou arquivo .wav)
-static float32_t inputSignal[SIGNAL_BUFFER_SIZE] = { 0 };		// Buffer de entrada da FFT
-float32_t outputSignal[OUTPUT_SIGNAL_SIZE] = { 0 }; 			// Buffer de saída para os resultados da FFT
-float32_t hanningWindow[OUTPUT_SIGNAL_SIZE] = { 0 }; 			// Buffer para a janela de hanning
-//static volatile uint8_t fftBufferReadyFlag; 					// Variavel que informa se o buffer entrada da FFT esta pronto para processamento
-arm_rfft_fast_instance_f32 fftHandler;							// Esturura para FFT real
+static volatile int16_t inputBuffer[INPUT_BUFFER_SIZE] = { 0 };		// Buffer para armazenar os dados de entrada (ADC ou arquivo .wav)
+static float32_t inputSignal[SIGNAL_BUFFER_SIZE] = { 0 };
+static float32_t outputSignal[OUTPUT_SIGNAL_SIZE] = { 0 }; 			// Buffer de saída para os resultados da FFT
+static float32_t hanningWindow[OUTPUT_SIGNAL_SIZE] = { 0 }; 		// Buffer para a janela de hanning
+static float32_t data[INPUT_BUFFER_SIZE] = { 0 }; 					// Buffer de entrada da FFT (necessario porque a FFT afeta o vetor de entrada)
+static float32_t dataFiltered[INPUT_BUFFER_SIZE] = { 0 }; 					// Buffer de entrada da FFT (necessario porque a FFT afeta o vetor de entrada)
+//static float32_t fir_output_buffer[INPUT_BUFFER_SIZE] = { 0 };
+//static volatile uint8_t fftBufferReadyFlag; 						// Variavel que informa se o buffer entrada da FFT esta pronto para processamento
+arm_rfft_fast_instance_f32 fftHandler;								// Esturura para FFT real
 //uint32_t deltaTimes[8] = { 0 };
+
+arm_biquad_casd_df1_inst_f32 filterHandler;							// Instância da estrutura do filtro. Ela manterá todas as informações
+static float32_t pState[NUM_STAGES * 2] = { 0 }; 					// Buffer de estado do filtro.
+
+const float32_t NORM_FACTOR = 1.0f / 32767.0f;
+
+char outputString[MAX_STRING_LENGTH]; 	// variavel para armazenar a string de saida
 
 #ifdef USE_SD_AUDIO
 int16_t volatile audioBuffer[INPUT_BUFFER_SIZE] = { 0 };	// Buffer para armazenar amostras de áudio lidas do arquivo WAV
@@ -146,6 +157,15 @@ static TDFeatures tdFeatures = { 0 }; // Estrutura das features relacionadas ao 
 
 // Frequency Domain Features
 static FDFeatures fdFeatures = { 0 }; // Estrutura das features relacionadas ao dominio da Frequencia
+
+// Coeficientes do Filtro Passa-Faixa Butter de 4 estagios (Ordem 8)
+// Fs=48000Hz, Fc=[20.0Hz, 20000.0Hz]
+static const float32_t pCoeffs[NUM_STAGES * 5] = {
+    0.49803642f,    0.99607284f,    0.49803642f,    -1.18440148f,    -0.36786567f,
+    1.00000000f,    2.00000000f,    1.00000000f,    -1.45394167f,    -0.67891696f,
+    1.00000000f,    -2.00000000f,    1.00000000f,    +1.99516502f,    -0.99517187f,
+    1.00000000f,    -2.00000000f,    1.00000000f,    +1.99799243f,    -0.99799927f,
+};
 
 /* USER CODE END PV */
 
@@ -208,7 +228,7 @@ int main(void)
   /* USER CODE BEGIN Init */
 
 	arm_rfft_fast_init_f32(&fftHandler, OUTPUT_SIGNAL_SIZE); // Inicializa Estrutura Handler da FFT
-
+	arm_biquad_cascade_df1_init_f32(&filterHandler, NUM_STAGES, &pCoeffs[0], &pState[0]);
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -231,7 +251,7 @@ int main(void)
 
 #ifdef USE_SD_AUDIO
 	MX_FATFS_Init();
-	HAL_Delay(4000); 			// Um delay para o cartao SD estabilizar
+	HAL_Delay(5000); 			// Um delay para o cartao SD estabilizar
 	SDCard_Init(&FatFs);
 	HAL_TIM_Base_Start(&htim2);	// Faz com que o Timer 2 comece a contar
 	// Montagem do file system
@@ -331,8 +351,6 @@ int main(void)
 
 	myprintf("\r\n~ Processando dados ~\r\n\r\n");
 
-	char *outputString = NULL; 	// variavel para armazenar a string de saida
-//	int outputStringSize;		// tamanho da string descontando o caracter nulo
 //	uint32_t startTick, startTime;
 	SDCard_WriteLine(&outputFile, CSV_HEADER);
 
@@ -357,8 +375,8 @@ int main(void)
 			// Converter as amostras de 16 bits para float32_t e normalizar
 			for (int i = 0; i < INPUT_BUFFER_SIZE; i++) {
 				// Copia os dados para segunda metade do inputSignal
-				inputSignal[INPUT_BUFFER_SIZE + i] = (float32_t) inputBuffer[i];
-//				inputSignal[INPUT_BUFFER_SIZE + i] = (float32_t) inputBuffer[i] / 32768.0f; // Normalizacao de 16 bits para float
+//				inputSignal[INPUT_BUFFER_SIZE + i] = (float32_t) inputBuffer[i];
+				inputSignal[INPUT_BUFFER_SIZE + i] = (float32_t) inputBuffer[i] * NORM_FACTOR; // Normalizacao de 16 bits para float
 			}
 
 //			deltaTimes[1] = __HAL_TIM_GET_COUNTER(&htim2) - startTick; //Mede o tempo que demorou para fazer a normalizacao
@@ -394,25 +412,7 @@ int main(void)
 //			inputSignal[INPUT_BUFFER_SIZE + i] = (float32_t) adcBuffer[i] / 4096.0f; // Normalizaçcao de 12 bits (4096) para float
 		}
 #endif
-		/*---------------------------------------------------------------------------*/
-		/* Pre-processamento --------------------------------------------------------*/
-		/*---------------------------------------------------------------------------*/
-
-//		startTick = __HAL_TIM_GET_COUNTER(&htim2);
-		// TODO: Testar possivel otimizacao removendo essa copia inicial e
-		//       fazendo a multiplicacao direta da janela com o input buffer
-		//  Overlapping de 75% antes do janelamento
-//		arm_copy_f32(&inputBuffer[n], inputSignal, OUTPUT_SIGNAL_SIZE);
-		// Aplica a janela de hanning no buffer de entrada da fft
-		arm_mult_f32(&inputSignal[INPUT_BUFFER_SIZE], hanningWindow,
-				&inputSignal[INPUT_BUFFER_SIZE],
-				OUTPUT_SIGNAL_SIZE);
-		float32_t data[INPUT_BUFFER_SIZE]; // necessario porque a FFT afeta o vetor de entrada
-
-//		deltaTimes[2] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;  // mede o tempo gasto para fazer multiplicacao
 																	// pela janela
-
-
 		// Processamento dos dados lidos (no buffer) necessário
 		// Overlapping de 75% antes do janelamento
 		for (int n = (int) (INPUT_BUFFER_SIZE * (1.0f - OVERLAP_FACTOR));
@@ -420,37 +420,54 @@ int main(void)
 
 
 			// Copia dados do input buffer para array que vai ser utilizado para processamento
-			// Isso e necessario porque a FFT altera o vetor de entrada
-			// Faco a copia do inputSignal para o data para poder preservar o janelamento
 			arm_copy_f32(&inputSignal[n], &data[0], OUTPUT_SIGNAL_SIZE);
+//			arm_copy_f32(&inputSignal[n], &fir_output_buffer[0], OUTPUT_SIGNAL_SIZE);
+
+
+			/*---------------------------------------------------------------------------*/
+			/* Pre-processamento --------------------------------------------------------*/
+			/*---------------------------------------------------------------------------*/
+
+	//		startTick = __HAL_TIM_GET_COUNTER(&htim2);
+			// Aplica o filtro ao sinal de entrada
+//			arm_fir_f32(&firHandler, &fir_output_buffer[0], &data[0], OUTPUT_SIGNAL_SIZE);
+			arm_biquad_cascade_df1_f32(&filterHandler, &data[0], &dataFiltered[0],  OUTPUT_SIGNAL_SIZE);
+
+			// Aplica a janela de hanning no buffer de entrada da fft
+			arm_mult_f32(&dataFiltered[0], hanningWindow, &dataFiltered[0],	OUTPUT_SIGNAL_SIZE);
+
+	//		deltaTimes[2] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;  // mede o tempo gasto para fazer multiplicacao
+
 
 			/*---------------------------------------------------------------------------*/
 			/* Extracao das Features no Dominio do Tempo --------------------------------*/
 			/*---------------------------------------------------------------------------*/
-//			myprintf("\r\n~ Extracao das Features no Dominio do Tempo ~\r\n\r\n");
+
+			//			myprintf("\r\n~ Extracao das Features no Dominio do Tempo ~\r\n\r\n");
 //			startTick = __HAL_TIM_GET_COUNTER(&htim2);
 
-			extractTimeDomainFeatures(&tdFeatures, &data[0], INPUT_BUFFER_SIZE);
+			extractTimeDomainFeatures(&tdFeatures, &dataFiltered[0], INPUT_BUFFER_SIZE);
 
 //			deltaTimes[3] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;// Mede o tempo para extrair as
 																	  // features no dominio do Tempo
 
+
 			/*---------------------------------------------------------------------------*/
 			/* Extracao das Features no Dominio da Frequencia ---------------------------*/
 			/*---------------------------------------------------------------------------*/
-//			myprintf("\r\n~ Extracao das Features no Dominio da Frequencia ~\r\n\r\n");
+
+			//			myprintf("\r\n~ Extracao das Features no Dominio da Frequencia ~\r\n\r\n");
 			// Calcula fft usando a biblioteca da ARM
 //			startTick = __HAL_TIM_GET_COUNTER(&htim2);
 
-			arm_rfft_fast_f32(&fftHandler, &data[0], &outputSignal[0], 0); // o ultimo argumento significa que nao queremos calcular a fft inversa
+			arm_rfft_fast_f32(&fftHandler, &dataFiltered[0], &outputSignal[0], 0); // o ultimo argumento significa que nao queremos calcular a fft inversa
 
 //			deltaTimes[4] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;// Mede o tempo para calcular
 																	  // a fft
 
 //			startTick = __HAL_TIM_GET_COUNTER(&htim2);
 
-			extractFrequencyDomainFeatures(&fdFeatures, outputSignal,
-			OUTPUT_SIGNAL_SIZE, sampleRate);
+			extractFrequencyDomainFeatures(&fdFeatures, outputSignal, OUTPUT_SIGNAL_SIZE, sampleRate);
 
 //			deltaTimes[5] = __HAL_TIM_GET_COUNTER(&htim2) - startTick;// Mede o tempo para extrair as
 			// features do dominio da Frequencia
@@ -458,10 +475,12 @@ int main(void)
 			// [DEBUG]
 //			printFeatures(&tdFeatures, &fdFeatures);
 
+
 			/*---------------------------------------------------------------------------*/
 			/* Faz Inferencia -----------------------------------------------------------*/
 			/*---------------------------------------------------------------------------*/
-//			myprintf("\r\n~ Faz Inferencia ~\r\n\r\n");
+
+			//			myprintf("\r\n~ Faz Inferencia ~\r\n\r\n");
 //			startTick = __HAL_TIM_GET_COUNTER(&htim2);
 
 //			int32_t result = run_inference(test_model(&tdFeatures, &fdFeatures));
@@ -474,7 +493,7 @@ int main(void)
 			/*---------------------------------------------------------------------------*/
 //
 //			formatFeaturestoString(&outputString, &tdFeatures, &fdFeatures);
-			formatFeaturesAndResultToString(&outputString, &tdFeatures, &fdFeatures, result);
+			formatFeaturesAndResultToString(outputString, &tdFeatures, &fdFeatures, result);
 //			formatTimeArrayToString(&outputString, deltaTimes);
 			fres = SDCard_WriteLine(&outputFile, outputString);
 
@@ -490,7 +509,7 @@ int main(void)
 
 //			myprintf("Inference result: %d\r\n", result);
 			myprintf("."); // minha barra de progresso ?!
-			HAL_Delay(50);
+//			HAL_Delay(50);
 		}
 
 
@@ -625,8 +644,8 @@ static void MX_SPI2_Init(void)
   hspi2.Init.Mode = SPI_MODE_MASTER;
   hspi2.Init.Direction = SPI_DIRECTION_2LINES;
   hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi2.Init.CLKPolarity = SPI_POLARITY_HIGH;
-  hspi2.Init.CLKPhase = SPI_PHASE_2EDGE;
+  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
   hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
