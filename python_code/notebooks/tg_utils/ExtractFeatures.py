@@ -5,14 +5,17 @@ from scipy.signal.windows import hann
 from scipy.stats import skew, kurtosis
 from scipy.fft import rfft
 from .doFilterHP import HighpassFilter
+from .GeradorFiltro import GeradorFiltroPassaFaixa
 
 filtro_hp = HighpassFilter()
 
 def ExtractFeatures(DataBuff, BufferLen, Fs):
 
     hann_window = hann(BufferLen) # Cria um filtro com Janela Hanning 
-    DataBuff = DataBuff * hann_window
-    DataBuff = filtro_hp.doFilterHP(DataBuff)
+    filtro = GeradorFiltroPassaFaixa(fs=Fs).projetar_filtro()
+    # DataBuff = filtro_hp.doFilterHP(DataBuff)
+    DataBuff_Filtered = filtro.filtrar_sinal(DataBuff)
+    DataBuff = DataBuff_Filtered * hann_window
     
     fAxis_F1 = np.arange(start=0,stop=((BufferLen-1)/2), step=1)
     fAxis_F1 = fAxis_F1*(Fs/BufferLen) # creates freq axis

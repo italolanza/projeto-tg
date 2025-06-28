@@ -9,10 +9,10 @@ class GeradorFiltroPassaFaixa:
 
     # Especificações do filtro baseadas no artigo
     FS_FILTER = 48000       # Frequência de amostragem do filtro em Hz
-    LOWCUT = 100.0          # Frequência de corte inferior em Hz
+    LOWCUT = 20.0          # Frequência de corte inferior em Hz
     HIGHCUT = 20000.0       # Frequência de corte superior em Hz
     ORDER = 4               # Ordem do filtro
-    FILTER_TYPE = 'cheby1'  # Opções: 'butter', 'cheby1', 'cheby2'
+    FILTER_TYPE = 'butter'  # Opções: 'butter', 'cheby1', 'cheby2'
     RP = 0.5                # Ripple máximo na banda de passagem em dB (apenas para Chebyshev)
 
     def __init__(self, lowcut=100.0, highcut=20000.0, fs=48000, order=4, filter_type="cheby1", ripple=0.5):
@@ -58,8 +58,8 @@ class GeradorFiltroPassaFaixa:
             coeffs_cmsis[i*5 + 0] = b0
             coeffs_cmsis[i*5 + 1] = b1
             coeffs_cmsis[i*5 + 2] = b2
-            coeffs_cmsis[i*5 + 3] = -a1 # Inverte o sinal de a1
-            coeffs_cmsis[i*5 + 4] = -a2 # Inverte o sinal de a2
+            coeffs_cmsis[i*5 + 3] = (a1 * (-1))     # Inverte o sinal de a1
+            coeffs_cmsis[i*5 + 4] = (a2 * (-1))     # Inverte o sinal de a1
 
         # Exibe os coeficientes no formato para copiar e colar em C
         print(f"// Coeficientes do Filtro Passa-Faixa {self.FILTER_TYPE.capitalize()} de Ordem {self.ORDER}")
@@ -175,8 +175,8 @@ def visualizar_graficos_do_filtro(filter, wav_filepath):
     ax_filt_resp_full.plot(w, db_h, label=f'Filtro {filter.FILTER_TYPE.capitalize()}', color='purple')
     ax_filt_resp_full.set_title('Resposta de Frequência do Filtro (Completa)')
     ax_filt_resp_full.set_xlabel('Frequência (Hz)'); ax_filt_resp_full.set_ylabel('Ganho (dB)')
-    ax_filt_resp_full.axvline(filter.LOWCUT, color='red', linestyle='--', alpha=0.7, label=f'Corte Inferior ({filter.LOWCUT} Hz)')
-    ax_filt_resp_full.axvline(filter.HIGHCUT, color='red', linestyle='--', alpha=0.7)
+    ax_filt_resp_full.axvline(filter.LOWCUT, color='orange', linestyle='--', alpha=0.7, label=f'Corte Inferior ({filter.LOWCUT} Hz)')
+    ax_filt_resp_full.axvline(filter.HIGHCUT, color='red', linestyle='--', alpha=0.7, label=f'Corte Superior ({filter.HIGHCUT} Hz)')
     ax_filt_resp_full.set_ylim(-80, 5)
     ax_filt_resp_full.set_xlim(0, filter.FS_FILTER / 2)
     ax_filt_resp_full.legend()
@@ -185,7 +185,7 @@ def visualizar_graficos_do_filtro(filter, wav_filepath):
     ax_filt_resp_zoom.plot(w, db_h, label=f'Filtro {filter.FILTER_TYPE.capitalize()}', color='purple')
     ax_filt_resp_zoom.set_title('Resposta de Frequência (Zoom < 500 Hz)')
     ax_filt_resp_zoom.set_xlabel('Frequência (Hz)')
-    ax_filt_resp_zoom.axvline(filter.LOWCUT, color='red', linestyle='--', alpha=0.7, label=f'Corte Inferior ({filter.LOWCUT} Hz)')
+    ax_filt_resp_zoom.axvline(filter.LOWCUT, color='orange', linestyle='--', alpha=0.7, label=f'Corte Inferior ({filter.LOWCUT} Hz)')
     ax_filt_resp_zoom.set_xlim(0, 500)
     ax_filt_resp_zoom.set_ylim(-80, 5)
     ax_filt_resp_zoom.grid(True, which='both')
