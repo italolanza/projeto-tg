@@ -8,13 +8,20 @@ from .doFilterHP import HighpassFilter
 from .GeradorFiltro import GeradorFiltroPassaFaixa
 
 filtro_hp = HighpassFilter()
+# Coeficientes do Filtro Passa-Faixa Butter de 4 estagios (Ordem 8)
+# Fs=48000Hz, Fc=[20.0Hz, 20000.0Hz]
+filterCoefs = [ [0.49803642, 0.99607284, 0.49803642, 1., 1.18440148, 0.36786567], 
+                [ 1., 2., 1., 1., 1.45394167, 0.67891696],
+                [ 1., -2., 1., 1., -1.99516502, 0.99517187],
+                [ 1., -2., 1., 1., -1.99799243, 0.99799927] ]
 
 def ExtractFeatures(DataBuff, BufferLen, Fs):
 
     hann_window = hann(BufferLen) # Cria um filtro com Janela Hanning 
-    filtro = GeradorFiltroPassaFaixa(fs=Fs).projetar_filtro()
+    # filtro = GeradorFiltroPassaFaixa(fs=Fs).projetar_filtro()
     # DataBuff = filtro_hp.doFilterHP(DataBuff)
-    DataBuff_Filtered = filtro.filtrar_sinal(DataBuff)
+    # DataBuff_Filtered = filtro.filtrar_sinal(DataBuff)
+    DataBuff_Filtered = sosfilt(filterCoefs, DataBuff)
     DataBuff = DataBuff_Filtered * hann_window
     
     fAxis_F1 = np.arange(start=0,stop=((BufferLen-1)/2), step=1)
