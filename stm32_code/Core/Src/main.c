@@ -70,9 +70,9 @@ typedef struct {
  * f3.wav
  */
 
-#define AUDIO_FILE_NAME "f3.wav"
+#define AUDIO_FILE_NAME "off.wav"
 //#define CSV_FILE_NAME "off.csv"
-#define CSV_FILE_NAME "dt-f-f3.csv"
+#define CSV_FILE_NAME "dt-f-off.csv"
 //#define CSV_HEADER "RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3"
 #define CSV_HEADER "RMS,Variance,Skewness,Kurtosis,CrestFactor,ShapeFactor,ImpulseFactor,MarginFactor,Peak1,Peak2,Peak3,PeakLocs1,PeakLocs2,PeakLocs3,Predicted"
 //#define CSV_HEADER "TempoLeituraSD,TempoNormalizacao,TempoJanela,TempoFeatTempo,TempoFFT,TempoFeatFrequencia,TempoInferencia,TempoTotalBatch"
