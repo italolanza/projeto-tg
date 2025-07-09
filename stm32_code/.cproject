@@ -59,7 +59,7 @@
 									<listOptionValue builtIn="false" value="../FATFS/Target"/>
 									<listOptionValue builtIn="false" value="../FATFS/App"/>
 									<listOptionValue builtIn="false" value="../Middlewares/Third_Party/FatFs/src"/>
-									<listOptionValue builtIn="false" value="&quot;C:\Users\italo\Workspace\TG\emlearn-0.20.4\emlearn&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}}/../../emlearn/emlearn&quot;"/>
 									<listOptionValue builtIn="false" value="../TG_SOURCE/Inc"/>
 									<listOptionValue builtIn="false" value="../TG_SOURCE/Models"/>
 									<listOptionValue builtIn="false" value="../Drivers/CMSIS/Include"/>
@@ -243,7 +243,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Drivers/CMSIS/Include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Drivers/CMSIS/DSP/Include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Drivers/CMSIS/DSP/PrivateInclude}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;C:\Users\italo\Workspace\TG\emlearn-0.20.4\emlearn&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}}/../../emlearn/emlearn&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/TG_SOURCE/Inc}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/TG_SOURCE/Models}&quot;"/>
 									<listOptionValue builtIn="false" value="../Drivers/CMSIS/Include"/>
