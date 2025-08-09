@@ -106,6 +106,14 @@ FRESULT SDCard_WriteLine(FIL *fileHandle, const char *line) {
 		return FR_DISK_ERR;
 	}
 
+	// Força a sincronização do buffer com o cartão SD
+	FRESULT res = f_sync(fileHandle);
+	if (res != FR_OK) {
+		return res;
+	}
+
+		return FR_OK;
+
 	return FR_OK;
 }
 
