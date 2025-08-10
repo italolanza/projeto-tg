@@ -71,12 +71,12 @@ typedef struct {
  */
 
 #define AUDIO_FILE_NAME "off_20.wav"
-#define CSV_FILE_NAME "dt-f-off.csv"
+#define CSV_FILE_NAME "dt-t-off.csv"
 
 
 // #################### CONTROLE DE MEDIÇÃO DE TEMPO ####################
 // ## Descomente a linha abaixo para ativar a medição de tempo e a escrita no CSV de tempos.
-//#define ENABLE_TIME_MEASUREMENT
+#define ENABLE_TIME_MEASUREMENT
 // ######################################################################
 
 
@@ -415,7 +415,7 @@ int main(void)
 		TIME_STOP(0, startTick); // Mede o tempo que demorou para fazer a leitura do arquivo csv
 
 		TIME_START(startTick);
-		TIME_START(startTime); // Inicia a medição do tempo total do batchTIME_START(startTime); // Inicia a medição do tempo total do batch
+		TIME_START(startTime); // Inicia a medição do tempo total do batch
 		// Ler amostras de audio do arquivo .wav no cartão SD
 		if (fres == FR_OK && bytesRead >= (INPUT_BUFFER_SIZE * sampleSize)) {
 			// Converter as amostras de 16 bits para float32_t e normalizar
@@ -458,7 +458,7 @@ int main(void)
 //			inputSignal[INPUT_BUFFER_SIZE + i] = (float32_t) adcBuffer[i] / 4096.0f; // Normalizaçcao de 12 bits (4096) para float
 		}
 #endif
-																	// pela janela
+
 		// Processamento dos dados lidos (no buffer) necessário
 		// Overlapping de 75% antes do janelamento
 		for (int n = (int) (INPUT_BUFFER_SIZE * (1.0f - OVERLAP_FACTOR));
@@ -603,7 +603,7 @@ void SystemClock_Config(void)
   /** Configure the main internal regulator output voltage
   */
   __HAL_RCC_PWR_CLK_ENABLE();
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
@@ -613,12 +613,19 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 16;
-  RCC_OscInitStruct.PLL.PLLN = 336;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
+  RCC_OscInitStruct.PLL.PLLM = 8;
+  RCC_OscInitStruct.PLL.PLLN = 180;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = 2;
   RCC_OscInitStruct.PLL.PLLR = 2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Activate the Over-Drive mode
+  */
+  if (HAL_PWREx_EnableOverDrive() != HAL_OK)
   {
     Error_Handler();
   }
@@ -629,10 +636,10 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
   {
     Error_Handler();
   }
@@ -721,7 +728,7 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 83;
+  htim2.Init.Prescaler = 89;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 0xffffffff;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -801,7 +808,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(SD_CS_GPIO_Port, SD_CS_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(SD_CS_GPIO_Port, SD_CS_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
